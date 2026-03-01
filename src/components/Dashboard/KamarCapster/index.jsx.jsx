@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Camera, MapPin, Loader2, UserCheck, 
-  Home, Users, ClipboardList, User, LogOut 
+  Home, Users, ClipboardList, User, LogOut, Clock 
 } from 'lucide-react';
 import { supabase } from '../../../supabaseClient';
 
@@ -43,17 +43,22 @@ export default function KamarCapster({ user, onLogout }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [outletLocation, setOutletLocation] = useState({ lat: 0, lng: 0, radius: 50 });
 
+  // --- STATE SHIFTS (BARU) ---
+  const [shifts, setShifts] = useState([]);
+  const [selectedShiftId, setSelectedShiftId] = useState('');
+
   const tanggalHariIni = new Date().toISOString().split('T')[0];
 
   const isFO = user?.role?.toLowerCase().includes('fo') || 
                user?.role?.toLowerCase().includes('front office') || 
                user?.role?.toLowerCase().includes('kasir');
 
-  // 1. CEK STATUS ABSEN HARI INI
+  // 1. CEK STATUS ABSEN & LOAD SHIFTS
   useEffect(() => {
-    const checkAttendance = async () => {
+    const checkAttendanceAndShifts = async () => {
       setIsCheckingLock(true);
       try {
+        // Cek absen hari ini
         const { data: log } = await supabase
           .from('attendance_logs')
           .select('id, jam_masuk')
@@ -65,9 +70,41 @@ export default function KamarCapster({ user, onLogout }) {
           setHasClockedIn(true);
         } else {
           setHasClockedIn(false);
+          
+          // Tarik data outlet
           const { data: outlet } = await supabase.from('outlets').select('latitude, longitude, radius_absen').eq('id', user.outlet_id).single();
           if (outlet) {
             setOutletLocation({ lat: parseFloat(outlet.latitude), lng: parseFloat(outlet.longitude), radius: outlet.radius_absen || 50 });
+          }
+
+          // Tarik data shift HANYA YANG AKTIF
+          const { data: shiftData } = await supabase
+            .from('shifts')
+            .select('*')
+            .eq('outlet_id', user.outlet_id)
+            .eq('is_active', true) // Filter khusus shift aktif
+            .order('jam_mulai', { ascending: true });
+
+          if (shiftData && shiftData.length > 0) {
+            setShifts(shiftData);
+            
+            // AUTO-SELECT SHIFT TERDEKAT DENGAN JAM SEKARANG
+            const now = new Date();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            
+            let closestShift = shiftData[0];
+            let minDiff = Infinity;
+
+            shiftData.forEach(s => {
+              const [h, m] = s.jam_mulai.split(':');
+              const shiftMinutes = parseInt(h) * 60 + parseInt(m);
+              const diff = Math.abs(currentMinutes - shiftMinutes);
+              if (diff < minDiff) {
+                minDiff = diff;
+                closestShift = s;
+              }
+            });
+            setSelectedShiftId(closestShift.id);
           }
         }
       } catch (err) {
@@ -76,10 +113,10 @@ export default function KamarCapster({ user, onLogout }) {
         setIsCheckingLock(false);
       }
     };
-    checkAttendance();
+    checkAttendanceAndShifts();
   }, [user.id, tanggalHariIni]);
 
-  // 2. FUNGSI EKSEKUSI ABSEN MASUK
+  // 2. FUNGSI EKSEKUSI ABSEN MASUK PINTAR
   const handlePhotoCapture = (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -91,16 +128,16 @@ export default function KamarCapster({ user, onLogout }) {
   const handleClockIn = async (e) => {
     e.preventDefault();
     if (!clockInFile) { alert("Wajib foto selfie dulu Bos!"); return; }
+    if (!selectedShiftId && shifts.length > 0) { alert("Pilih Shift dulu Bos!"); return; }
     
     setIsSubmitting(true);
     try {
       let userLat, userLng;
       try {
         const position = await getCurrentLocation();
-        userLat = position.coords.latitude;
-        userLng = position.coords.longitude;
+        userLat = position.coords.latitude; userLng = position.coords.longitude;
       } catch (err) {
-        alert("⚠️ Gagal mendapatkan lokasi! Pastikan GPS HP nyala dan browser diizinkan akses lokasi.");
+        alert("⚠️ Gagal mendapatkan lokasi! Pastikan GPS nyala dan browser diizinkan akses lokasi.");
         setIsSubmitting(false); return;
       }
 
@@ -110,9 +147,34 @@ export default function KamarCapster({ user, onLogout }) {
         setIsSubmitting(false); return;
       }
 
+      // --- LOGIKA HITUNG TELAT ---
+      let statusKehadiran = 'Tepat Waktu';
+      let menitTelatDb = 0;
+      let lateMinutes = 0;
+      let shiftMulaiStr = '';
+
+      if (selectedShiftId) {
+        const selectedShift = shifts.find(s => s.id === selectedShiftId);
+        if (selectedShift) {
+          shiftMulaiStr = selectedShift.jam_mulai.substring(0, 5);
+          const now = new Date();
+          const currentMinutes = now.getHours() * 60 + now.getMinutes();
+          
+          const [sHour, sMin] = selectedShift.jam_mulai.split(':');
+          const shiftStartMinutes = parseInt(sHour) * 60 + parseInt(sMin);
+          
+          lateMinutes = currentMinutes - shiftStartMinutes;
+
+          if (lateMinutes > 0) {
+            statusKehadiran = 'Telat';
+            menitTelatDb = lateMinutes;
+          }
+        }
+      }
+
+      // Upload Foto
       const fileExt = clockInFile.name.split('.').pop();
       const fileName = `masuk-${isFO ? 'fo' : 'capster'}-${user.id}-${Date.now()}.${fileExt}`;
-      
       const { error: uploadError } = await supabase.storage.from('attendance_photos').upload(fileName, clockInFile);
       if (uploadError) throw uploadError;
 
@@ -120,11 +182,15 @@ export default function KamarCapster({ user, onLogout }) {
       const photoUrl = publicUrlData.publicUrl;
       const jamSekarang = new Date().toISOString();
 
+      // Insert Database
       const { error: dbError } = await supabase
         .from('attendance_logs')
         .insert([{
           user_id: user.id,
           outlet_id: user.outlet_id,
+          shift_id: selectedShiftId || null, 
+          menit_terlambat: menitTelatDb, 
+          status_kehadiran: statusKehadiran, 
           tanggal: tanggalHariIni,
           jam_masuk: jamSekarang,
           foto_masuk: photoUrl,
@@ -133,7 +199,19 @@ export default function KamarCapster({ user, onLogout }) {
 
       if (dbError) throw dbError;
 
-      alert("🎉 Absen Masuk Berhasil! Selamat bekerja Bos!");
+      // --- ALERT FEEDBACK PINTAR ---
+      if (selectedShiftId) {
+        if (lateMinutes > 0) {
+          alert(`⚠️ ABSEN BERHASIL, TAPI ANDA TELAT!\n\nAnda terlambat ${lateMinutes} menit dari jadwal shift (${shiftMulaiStr}). Jangan diulangi ya Bos!`);
+        } else if (lateMinutes < 0) {
+          alert(`🎉 ABSEN BERHASIL!\n\nWah, Anda datang ${Math.abs(lateMinutes)} menit lebih awal dari jadwal (${shiftMulaiStr}). Pertahankan semangatnya!`);
+        } else {
+          alert(`✅ ABSEN BERHASIL!\n\nAnda datang pas banget on-time jam ${shiftMulaiStr}. Mantap!`);
+        }
+      } else {
+        alert("🎉 Absen Masuk Berhasil! Selamat bekerja Bos!");
+      }
+
       setHasClockedIn(true);
 
     } catch (err) {
@@ -158,9 +236,26 @@ export default function KamarCapster({ user, onLogout }) {
           </div>
           
           <h2 className="text-2xl font-black text-white uppercase tracking-tight mb-2 relative z-10">Mulai Shift {isFO && "FO"}</h2>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-8 relative z-10">Silakan absen masuk dari area toko</p>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-6 relative z-10">Silakan absen masuk dari area toko</p>
 
           <form onSubmit={handleClockIn} className="relative z-10">
+            
+            {/* DROPDOWN PILIH SHIFT */}
+            <div className="mb-4 text-left">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 flex items-center gap-1"><Clock size={12}/> Pilih Shift Kerja</label>
+              <select 
+                value={selectedShiftId} 
+                onChange={(e) => setSelectedShiftId(e.target.value)}
+                required={shifts.length > 0}
+                className="w-full bg-slate-950 border border-slate-700 p-3.5 rounded-2xl text-sm font-bold text-white outline-none focus:border-indigo-500 transition-colors appearance-none"
+              >
+                {shifts.length === 0 && <option value="">Belum ada data shift di Database</option>}
+                {shifts.map(s => (
+                  <option key={s.id} value={s.id}>{s.nama_shift} ({s.jam_mulai.substring(0,5)} - {s.jam_selesai.substring(0,5)})</option>
+                ))}
+              </select>
+            </div>
+
             <div className="relative w-full aspect-[3/4] rounded-3xl bg-slate-950 border-2 border-dashed border-slate-700 flex items-center justify-center overflow-hidden mb-6 group">
               {clockInPreview ? (
                 <img src={clockInPreview} alt="Selfie Masuk" className="w-full h-full object-cover"/>
@@ -173,7 +268,7 @@ export default function KamarCapster({ user, onLogout }) {
               <input type="file" accept="image/*" capture="user" onChange={handlePhotoCapture} required className="absolute inset-0 opacity-0 cursor-pointer z-10" />
             </div>
 
-            <button type="submit" disabled={isSubmitting || !clockInFile} className="w-full py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all flex justify-center items-center disabled:opacity-50 shadow-lg shadow-indigo-900/50">
+            <button type="submit" disabled={isSubmitting || !clockInFile || (shifts.length > 0 && !selectedShiftId)} className="w-full py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all flex justify-center items-center disabled:opacity-50 shadow-lg shadow-indigo-900/50">
               {isSubmitting ? <><Loader2 size={18} className="animate-spin mr-2" /> Memeriksa GPS...</> : "Absen & Buka Aplikasi"}
             </button>
           </form>
@@ -210,7 +305,7 @@ export default function KamarCapster({ user, onLogout }) {
         {/* RENDER TUGAS */}
         {activeTab === 'tugas' && <TabTugas user={user} />}
 
-        {/* RENDER ANTREAN - SEKARANG SUDAH DIBUKA GEMBOKNYA */}
+        {/* RENDER ANTREAN */}
         {!isFO && activeTab === 'antrean' && <TabAntrean user={user} />}
       </div>
 
