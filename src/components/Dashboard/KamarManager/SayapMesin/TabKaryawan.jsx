@@ -77,13 +77,33 @@ export default function TabKaryawan({ user }) {
       return alert("Pilih cabang dulu untuk posisi ini!");
     }
     try {
-      const payload = { ...formData }; 
+      // 1. KITA FILTER DATA SEBELUM DIKIRIM (Reality Check)
+      const payload = {
+        nama: formData.nama,
+        username: formData.username,
+        password: formData.password,
+        role: formData.role,
+        is_active: formData.is_active,
+        tanggal_masuk: formData.tanggal_masuk,
+        
+        // 2. CONVERT STRING KE ANGKA, KALAU KOSONG JADIIN 0
+        gaji_pokok: formData.gaji_pokok === '' || formData.gaji_pokok === null ? 0 : Number(formData.gaji_pokok),
+        
+        // 3. KALAU TEXT KOSONG, UBAH JADI NULL BIAR SUPABASE NGGAK NGAMUK
+        outlet_id: formData.outlet_id === '' ? null : formData.outlet_id,
+        photo_url: formData.photo_url === '' ? null : formData.photo_url,
+        tanggal_keluar: formData.tanggal_keluar === '' ? null : formData.tanggal_keluar,
+        hk_area_pic: formData.hk_area_pic === '' ? null : formData.hk_area_pic,
+      };
+
       if (mode === 'add') { 
-        delete payload.id; 
+        // ID nggak usah dikirim kalau 'add', biarin Supabase yang bikin otomatis
         await supabase.from('users').insert([payload]); 
       } else { 
+        // Kalau edit, kita baru pake ID dari formData
         await supabase.from('users').update(payload).eq('id', formData.id); 
       } 
+      
       setIsModalOpen(false); 
       fetchData();
     } catch (error) { 
