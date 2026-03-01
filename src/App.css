@@ -1,0 +1,60 @@
+import { User, Scissors, ClipboardList, LogOut, Play } from 'lucide-react';
+
+function App() {
+  return (
+    <div className="min-h-screen bg-gray-50 p-4 font-sans text-gray-800">
+      {/* Profil Capster */}
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 rounded-full bg-blue-600 shadow-lg flex items-center justify-center text-white font-bold">
+            <User size={24} />
+          </div>
+          <div>
+            <h1 className="text-xl font-black text-blue-900 leading-none">Halo, Andi!</h1>
+            <p className="text-xs text-gray-500 font-medium">Capster - Outlet Pusat</p>
+          </div>
+        </div>
+        <button className="text-gray-400"><LogOut size={20} /></button>
+      </div>
+
+      {/* Ringkasan Performa */}
+      <div className="grid grid-cols-2 gap-4 mb-8">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+          <div className="flex items-center gap-2 mb-2 text-blue-600">
+            <ClipboardList size={16} />
+            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Antrean</p>
+          </div>
+          <p className="text-3xl font-black text-gray-800">02</p>
+        </div>
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+          <div className="flex items-center gap-2 mb-2 text-green-600">
+            <Scissors size={16} />
+            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Komisi</p>
+          </div>
+          <p className="text-3xl font-black text-gray-800">30%</p>
+        </div>
+      </div>
+
+      {/* Tombol Utama */}
+      <button className="w-full bg-blue-600 text-white font-extrabold py-5 rounded-2xl shadow-xl shadow-blue-200 mb-10 flex items-center justify-center gap-2 active:scale-95 transition-transform">
+        <Play size={20} fill="currentColor" />
+        MULAI LAYANAN BARU
+      </button>
+
+      <h2 className="text-lg font-bold mb-4 text-gray-700 flex items-center gap-2">
+        <ClipboardList size={20} className="text-blue-600" />
+        Antrean Kamu
+      </h2>
+      
+      <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center">
+        <div>
+          <h3 className="font-bold text-gray-900">Budi Setiawan</h3>
+          <p className="text-sm text-gray-500">Gentleman Cut • 14:30 WIB</p>
+        </div>
+        <span className="bg-yellow-100 text-yellow-700 text-[10px] font-black px-3 py-1 rounded-full">WAITING</span>
+      </div>
+    </div>
+  )
+}
+
+export default App
