@@ -5,13 +5,13 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../../supabaseClient';
 
-// --- IMPORT TAB LU DI SINI ---
+// --- IMPORT TAB ---
 import TabHome from './TabHome';
 import TabHomeFO from './TabHomeFO';
 import TabProfil from './TabProfil';
-import TabProfilFO from './TabProfilFO'; // <-- UDAH DIBUKA
-import TabTugas from './TabTugas';       // <-- UDAH DIBUKA
-// import TabAntrean from './TabAntrean'; // (Buka kalau file TabAntrean.jsx udah lu bikin)
+import TabProfilFO from './TabProfilFO'; 
+import TabTugas from './TabTugas';
+import TabAntrean from './TabRadar'; // <-- Pastikan file ini namanya TabRadar.jsx
 
 // --- RUMUS HAVERSINE (Jarak GPS) ---
 function getDistanceFromLatLonInMeters(lat1, lon1, lat2, lon2) {
@@ -198,7 +198,7 @@ export default function KamarCapster({ user, onLogout }) {
           )
         )}
         
-        {/* RENDER PROFIL (UDAH DIPISAH) */}
+        {/* RENDER PROFIL */}
         {activeTab === 'profil' && (
           isFO ? (
             <TabProfilFO user={user} onLogout={onLogout} />
@@ -207,11 +207,11 @@ export default function KamarCapster({ user, onLogout }) {
           )
         )}
         
-        {/* RENDER TUGAS (UDAH DIBUKA) */}
+        {/* RENDER TUGAS */}
         {activeTab === 'tugas' && <TabTugas user={user} />}
 
-        {/* RENDER ANTREAN (Asumsi file blm ada, dikunci dulu, buka kalo udh bikin filenya) */}
-        {/* {!isFO && activeTab === 'antrean' && <TabAntrean user={user} />} */}
+        {/* RENDER ANTREAN - SEKARANG SUDAH DIBUKA GEMBOKNYA */}
+        {!isFO && activeTab === 'antrean' && <TabAntrean user={user} />}
       </div>
 
       <div className="fixed bottom-6 left-6 right-6 bg-slate-900/90 backdrop-blur-xl border border-slate-800 p-2 rounded-3xl flex justify-between items-center shadow-2xl shadow-indigo-900/20 z-50">
