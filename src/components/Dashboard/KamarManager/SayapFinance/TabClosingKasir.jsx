@@ -242,7 +242,7 @@ export default function TabClosingKasir({ user }) {
             <div className="p-2.5 bg-indigo-50 rounded-2xl text-indigo-600 border border-indigo-100/50">
               <Vault size={22} strokeWidth={1.5}/>
             </div>
-            Setoran Harian (Closing)
+            Daily Closing
           </h2>
           <p className="text-[14px] text-slate-500 font-medium mt-1.5 md:ml-[54px]">Laporan serah terima uang fisik & QRIS dari Kasir</p>
         </div>

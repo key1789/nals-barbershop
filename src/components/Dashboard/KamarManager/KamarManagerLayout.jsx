@@ -12,10 +12,10 @@ export default function KamarManagerLayout({ user, onLogout }) {
 
   // Icon dibikin strokeWidth={1.5} biar tipis dan elegan ala Airbnb
   const menuItems = [
-    { id: 'dashboard', name: 'Mata Dewa', icon: <LayoutDashboard size={22} strokeWidth={1.5} /> },
-    { id: 'finance', name: 'Keuangan & Kas', icon: <Wallet size={22} strokeWidth={1.5} /> },
+    { id: 'dashboard', name: 'Dashboard', icon: <LayoutDashboard size={22} strokeWidth={1.5} /> },
+    { id: 'finance', name: 'Keuangan', icon: <Wallet size={22} strokeWidth={1.5} /> },
     { id: 'hrd', name: 'HRD', icon: <Users size={22} strokeWidth={1.5} /> },
-    { id: 'crm', name: 'Radar Konsumen', icon: <Radar size={22} strokeWidth={1.5} /> },
+    { id: 'crm', name: 'Customers', icon: <Radar size={22} strokeWidth={1.5} /> },
     { id: 'mesin', name: 'System Settings', icon: <Settings size={22} strokeWidth={1.5} /> },
   ];
 

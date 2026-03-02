@@ -37,7 +37,7 @@ export default function SayapFinance({ user, outletId }) {
               : 'bg-white border border-slate-200/80 text-slate-500 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50'}`}
         >
           <LineChart size={18} strokeWidth={1.5} className={activeTab === 'dashboard' ? 'text-emerald-400' : ''}/> 
-          Mata Elang (P&L)
+          Dashboard Keuangan
         </button>
 
         <button 
@@ -48,18 +48,7 @@ export default function SayapFinance({ user, outletId }) {
               : 'bg-white border border-slate-200/80 text-slate-500 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50'}`}
         >
           <Receipt size={18} strokeWidth={1.5} className={activeTab === 'pettycash' ? 'text-amber-400' : ''}/> 
-          Kas Kecil FO
-        </button>
-
-        <button 
-          onClick={() => setActiveTab('closing')} 
-          className={`flex items-center gap-2.5 px-5 py-2.5 rounded-full whitespace-nowrap text-[14px] font-semibold transition-all focus:outline-none
-            ${activeTab === 'closing' 
-              ? 'bg-slate-900 text-white shadow-md shadow-slate-900/10' 
-              : 'bg-white border border-slate-200/80 text-slate-500 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50'}`}
-        >
-          <Vault size={18} strokeWidth={1.5} className={activeTab === 'closing' ? 'text-indigo-400' : ''}/> 
-          Setoran Harian
+          Petty Cash Transaction
         </button>
 
         <button 
@@ -70,7 +59,18 @@ export default function SayapFinance({ user, outletId }) {
               : 'bg-white border border-slate-200/80 text-slate-500 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50'}`}
         >
           <LockKeyhole size={18} strokeWidth={1.5} className={activeTab === 'bukubesar' ? 'text-rose-400' : ''}/> 
-          Buku Besar Manager
+          Management Expenses
+        </button>
+
+        <button 
+          onClick={() => setActiveTab('closing')} 
+          className={`flex items-center gap-2.5 px-5 py-2.5 rounded-full whitespace-nowrap text-[14px] font-semibold transition-all focus:outline-none
+            ${activeTab === 'closing' 
+              ? 'bg-slate-900 text-white shadow-md shadow-slate-900/10' 
+              : 'bg-white border border-slate-200/80 text-slate-500 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50'}`}
+        >
+          <Vault size={18} strokeWidth={1.5} className={activeTab === 'closing' ? 'text-indigo-400' : ''}/> 
+          Daily Closing
         </button>
 
       </div>

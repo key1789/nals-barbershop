@@ -124,7 +124,7 @@ export default function TabBukuBesar({ user }) {
             <div className="p-2.5 bg-rose-50 rounded-2xl text-rose-600 border border-rose-100/50">
               <LockKeyhole size={22} strokeWidth={1.5}/>
             </div>
-            Buku Besar Manager
+            Management Expenses
           </h2>
           <p className="text-[14px] text-slate-500 font-medium mt-1.5 md:ml-[54px]">Pencatatan khusus pengeluaran level manajemen</p>
         </div>

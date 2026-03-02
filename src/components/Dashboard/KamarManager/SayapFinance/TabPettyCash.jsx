@@ -130,9 +130,9 @@ export default function TabPettyCash({ user }) {
             <div className="p-2.5 bg-amber-50 rounded-2xl text-amber-600 border border-amber-100/50">
               <Receipt size={22} strokeWidth={1.5}/>
             </div>
-            Kas Kecil (Petty Cash)
+            Petty Cash Transactions
           </h2>
-          <p className="text-[14px] text-slate-500 font-medium mt-1.5 md:ml-[54px]">Catatan arus kas operasional Front Office</p>
+          <p className="text-[14px] text-slate-500 font-medium mt-1.5 md:ml-[54px]">Catatan arus kas operasional</p>
         </div>
         
         <div className="flex items-center gap-3 w-full md:w-auto">

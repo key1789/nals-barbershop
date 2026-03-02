@@ -252,11 +252,11 @@ export default function TabDashboardKeuangan({ user }) {
                    <span className="font-bold text-slate-900">Rp {financeData.totalGaji.toLocaleString('id-ID')}</span>
                  </div>
                  <div className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-xl transition-colors">
-                   <span className="text-[15px] font-medium text-slate-600">Kas Kecil (Front Office)</span>
+                   <span className="text-[15px] font-medium text-slate-600">Petty Cash</span>
                    <span className="font-bold text-slate-900">Rp {financeData.totalKasKecil.toLocaleString('id-ID')}</span>
                  </div>
                  <div className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-xl transition-colors">
-                   <span className="text-[15px] font-medium text-slate-600">Buku Besar Manajemen</span>
+                   <span className="text-[15px] font-medium text-slate-600">Management Expenses</span>
                    <span className="font-bold text-slate-900">Rp {financeData.totalMgmt.toLocaleString('id-ID')}</span>
                  </div>
                </div>
