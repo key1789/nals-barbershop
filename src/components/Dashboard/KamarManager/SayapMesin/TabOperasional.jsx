@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, Plus, ClipboardList, ClipboardCheck, Users, Layers, Map, Trash2, X } from 'lucide-react';
+// PERBAIKAN: Camera udah ditambahkan di baris import ini 👇
+import { Clock, Plus, ClipboardList, ClipboardCheck, Users, Layers, Map, Trash2, X, Loader2, Camera } from 'lucide-react';
 import { supabase } from '../../../../supabaseClient';
 
 export default function TabOperasional({ user }) {
    const [isLoading, setIsLoading] = useState(false);
    const [outletList, setOutletList] = useState([]);
-   // Lists
+   
    const [shiftList, setShiftList] = useState([]);
    const [dailyDutyList, setDailyDutyList] = useState([]);
    const [housekeepingList, setHousekeepingList] = useState([]);
-   // Modals & Forms
+   
    const [isModalShiftOpen, setIsModalShiftOpen] = useState(false);
    const [shiftMode, setShiftMode] = useState('add');
    const [shiftForm, setShiftForm] = useState({ 
@@ -34,9 +35,6 @@ export default function TabOperasional({ user }) {
    const [isSavingHk, setIsSavingHk] = useState(false);
    const hkModalRef = useRef(null);
 
-  // ==========================================
-  // FUNGSI TARIK DATA
-  // ==========================================
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -60,9 +58,6 @@ export default function TabOperasional({ user }) {
 
   useEffect(() => { fetchData(); }, []);
 
-  // ==========================================
-  // HANDLERS
-  // ==========================================
    const handleSaveShift = async (e) => {
       e.preventDefault(); 
       if (!shiftForm.outlet_id) return alert("Pilih cabang dulu!");
@@ -110,7 +105,7 @@ export default function TabOperasional({ user }) {
       } catch (error) { alert("Gagal simpan Housekeeping: " + error.message); }
       finally { setIsSavingHk(false); }
    };
-   // Lock scroll & ESC & auto-focus untuk semua modal
+
    useEffect(() => {
       const handleKey = (e) => {
          if (e.key === 'Escape') {
@@ -148,9 +143,6 @@ export default function TabOperasional({ user }) {
     } catch (error) { alert("Gagal hapus data!"); }
   };
 
-  // ==========================================
-  // GROUPING LOGIC
-  // ==========================================
   const groupedDailyDuty = dailyDutyList.reduce((acc, duty) => {
     if (!acc[duty.role]) acc[duty.role] = {};
     if (!acc[duty.role][duty.phase]) acc[duty.role][duty.phase] = {};
@@ -169,14 +161,19 @@ export default function TabOperasional({ user }) {
 
 
   return (
-   <div className="space-y-8 animate-in fade-in duration-300 min-h-[100dvh]">
+   <div className="space-y-8 px-1 md:px-2 animate-in fade-in duration-300 min-h-[100dvh]">
       
       {/* ZONA 1: MASTER SHIFT */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
-         <div className="flex justify-between items-center border-b border-slate-100 pb-4 mb-4">
+      <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200/60 shadow-sm">
+         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-5 mb-5 gap-4">
            <div>
-              <h2 className="font-black text-slate-800 text-lg flex items-center gap-2"><Clock className="text-indigo-500"/> Master Jam Kerja (Shift)</h2>
-              <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Pengaturan absen masuk & keluar</p>
+              <h2 className="text-lg md:text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                <div className="p-2 bg-indigo-50 rounded-xl text-indigo-500 border border-indigo-100/50">
+                  <Clock size={20} strokeWidth={1.5}/>
+                </div>
+                Master Jam Kerja (Shift)
+              </h2>
+              <p className="text-[13px] font-medium text-slate-500 mt-1 md:ml-[44px]">Pengaturan absen masuk & keluar</p>
            </div>
            <button 
               onClick={() => { 
@@ -184,28 +181,33 @@ export default function TabOperasional({ user }) {
                 setShiftForm({ id: null, outlet_id: '', nama_shift: 'Pagi', jam_mulai: '09:00', jam_selesai: '15:00', is_active: true }); 
                 setIsModalShiftOpen(true); 
               }} 
-              className="bg-indigo-100 text-indigo-700 px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-indigo-200 transition-all active:scale-95"
+              className="w-full md:w-auto bg-slate-900 hover:bg-slate-800 text-white px-5 py-3 rounded-2xl font-semibold text-[14px] shadow-md shadow-slate-900/10 transition-all flex items-center justify-center gap-2 active:scale-95 focus:outline-none"
            >
-              <Plus size={16}/> Tambah Shift
+              <Plus size={18} strokeWidth={1.5}/> Tambah Shift
            </button>
          </div>
 
          {isLoading ? (
-            <div className="text-center p-4 text-slate-400 font-bold text-sm">Memuat shift...</div>
+            <div className="text-center p-8 text-slate-400 font-medium flex flex-col items-center">
+              <Loader2 size={24} strokeWidth={1.5} className="animate-spin mb-2 text-indigo-400"/>
+              Memuat shift...
+            </div>
          ) : shiftList.length === 0 ? (
-           <div className="text-center p-6 border border-dashed rounded-xl text-slate-400 font-bold text-sm">Belum ada data Shift.</div>
+           <div className="text-center p-8 border border-dashed border-slate-300 rounded-3xl text-slate-500 font-medium bg-slate-50/50">Belum ada data Shift.</div>
          ) : (
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
              {shiftList.map(s => (
                <div 
                   key={s.id} 
                   onClick={() => { setShiftMode('edit'); setShiftForm(s); setIsModalShiftOpen(true); }} 
-                  className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center cursor-pointer hover:border-indigo-400 hover:shadow-md transition-all"
+                  className="p-5 bg-white border border-slate-200/80 rounded-3xl flex justify-between items-center cursor-pointer hover:border-indigo-300 hover:shadow-md transition-all group"
                >
-                 <div>
-                   <h4 className="font-black text-slate-800">{s.nama_shift}</h4>
-                   <p className="text-xs font-bold text-slate-500">{s.jam_mulai} - {s.jam_selesai}</p>
-                   <p className="text-[9px] font-black uppercase text-indigo-400 mt-1">{outletList.find(o => o.id === s.outlet_id)?.nama_outlet || 'Semua Cabang'}</p>
+                 <div className="min-w-0">
+                   <h4 className="font-bold text-[15px] text-slate-900 truncate group-hover:text-indigo-600 transition-colors">{s.nama_shift}</h4>
+                   <p className="text-[13px] font-semibold text-slate-500 mt-0.5">{s.jam_mulai} - {s.jam_selesai}</p>
+                   <span className="inline-block mt-2 text-[10px] font-semibold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-md truncate max-w-full">
+                     {outletList.find(o => o.id === s.outlet_id)?.nama_outlet || 'Semua Cabang'}
+                   </span>
                  </div>
                </div>
              ))}
@@ -214,14 +216,16 @@ export default function TabOperasional({ user }) {
       </div>
 
       {/* ZONA BAWAH: DAILY DUTY & HOUSEKEEPING */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         
         {/* ZONA 2: DAILY DUTY SOP */}
-        <div className="bg-sky-50 rounded-3xl p-6 border border-sky-200 shadow-sm flex flex-col max-h-[800px]">
-          <div className="flex justify-between items-center mb-4 border-b border-sky-200/50 pb-4 shrink-0">
+        <div className="bg-sky-50/50 rounded-3xl p-6 md:p-8 border border-sky-100/80 shadow-sm flex flex-col max-h-[800px]">
+          <div className="flex justify-between items-center mb-5 border-b border-sky-200/50 pb-5 shrink-0">
             <div>
-               <h2 className="font-black text-sky-800 text-lg flex items-center gap-2"><ClipboardList className="text-sky-500"/> Daily Duty (Role)</h2>
-               <p className="text-[10px] font-bold text-sky-700/70 mt-1 uppercase tracking-widest">Tugas melekat pada Jabatan</p>
+               <h2 className="text-lg font-extrabold text-sky-900 flex items-center gap-2">
+                 <ClipboardList size={20} strokeWidth={1.5} className="text-sky-600"/> Daily Duty (Role)
+               </h2>
+               <p className="text-[12px] font-medium text-sky-700/80 mt-1 md:ml-[28px]">Tugas melekat pada Jabatan</p>
             </div>
             <button 
                onClick={() => { 
@@ -229,40 +233,44 @@ export default function TabOperasional({ user }) {
                  setDailyForm({ id: null, outlet_id: '', role: 'FO', phase: 'Opening', fase_kategori: 'Persiapan', urutan: 1, aktivitas: '', tipe: 'Checklist', catatan: '', is_active: true }); 
                  setIsModalDailyOpen(true); 
                }} 
-               className="p-2.5 bg-sky-600 text-white rounded-xl hover:bg-sky-700 shadow-md active:scale-95 transition-all"
+               className="p-3 bg-sky-500 text-white rounded-2xl hover:bg-sky-600 shadow-md shadow-sky-200 active:scale-95 transition-all focus:outline-none"
             >
-               <Plus size={18}/>
+               <Plus size={18} strokeWidth={1.5}/>
             </button>
           </div>
           
-          <div className="space-y-4 overflow-y-auto pr-2 flex-1 no-scrollbar pb-4">
+          <div className="space-y-5 overflow-y-auto pr-2 flex-1 no-scrollbar pb-4">
             {isLoading ? (
-               <div className="text-center p-4 text-sky-600/50 font-bold text-sm">Memuat tugas...</div>
+               <div className="text-center p-8 text-sky-600/50 font-medium">Memuat tugas...</div>
             ) : Object.keys(groupedDailyDuty).length === 0 ? (
-               <p className="text-center text-sm font-bold text-sky-500 py-4 border-2 border-dashed border-sky-200 rounded-xl">Belum ada tugas.</p>
+               <p className="text-center text-sm font-medium text-sky-600/70 py-10 border border-dashed border-sky-200 bg-white rounded-3xl">Belum ada tugas.</p>
             ) : (
                Object.keys(groupedDailyDuty).map(role => (
-                  <div key={role} className="bg-white border border-sky-100 rounded-2xl overflow-hidden shadow-sm">
-                     <div className="bg-sky-100 px-4 py-2 font-black text-sky-900 flex items-center gap-2"><Users size={16}/> ROLE: {role}</div>
+                  <div key={role} className="bg-white border border-sky-100 rounded-3xl overflow-hidden shadow-sm">
+                     <div className="bg-sky-100/50 px-5 py-3 font-extrabold text-[13px] text-sky-900 flex items-center gap-2 tracking-wider">
+                       <Users size={16} strokeWidth={1.5}/> ROLE: {role}
+                     </div>
                      
-                     <div className="p-3 space-y-3">
+                     <div className="p-4 md:p-5 space-y-4">
                         {Object.keys(groupedDailyDuty[role]).map(phase => (
-                           <div key={phase} className="pl-3 border-l-2 border-sky-200">
-                              <div className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Layers size={12}/> PHASE: {phase}</div>
+                           <div key={phase} className="pl-4 border-l-2 border-sky-200">
+                              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                <Layers size={14} strokeWidth={1.5}/> PHASE: {phase}
+                              </div>
                               
-                              <div className="space-y-2">
+                              <div className="space-y-3">
                                  {Object.keys(groupedDailyDuty[role][phase]).map(kategori => (
-                                    <div key={kategori} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                       <div className="text-[10px] font-bold text-indigo-500 uppercase mb-2 bg-indigo-50 inline-block px-2 py-0.5 rounded">[{kategori}]</div>
-                                       <div className="space-y-1.5">
+                                    <div key={kategori} className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100">
+                                       <div className="text-[10px] font-extrabold text-indigo-600 uppercase mb-2.5 bg-indigo-50 inline-block px-2.5 py-1 rounded-md tracking-wider">[{kategori}]</div>
+                                       <div className="space-y-2">
                                           {groupedDailyDuty[role][phase][kategori].map(duty => (
                                              <div 
                                                 key={duty.id} 
                                                 onClick={() => { setDailyMode('edit'); setDailyForm(duty); setIsModalDailyOpen(true); }} 
-                                                className="flex justify-between items-center p-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-sky-400 hover:shadow-sm transition-all group"
+                                                className="flex justify-between items-center p-3 bg-white border border-slate-200/80 rounded-xl cursor-pointer hover:border-sky-400 hover:shadow-sm transition-all group gap-3"
                                              >
-                                                <p className="text-sm font-bold text-slate-800 flex-1">{duty.urutan}. {duty.aktivitas}</p>
-                                                {duty.tipe !== 'Checklist' && <span className="text-[9px] font-black uppercase text-amber-500 ml-2">{duty.tipe}</span>}
+                                                <p className="text-[13px] font-semibold text-slate-800 flex-1 leading-snug">{duty.urutan}. {duty.aktivitas}</p>
+                                                {duty.tipe !== 'Checklist' && <span className="text-[9px] font-extrabold uppercase text-amber-600 bg-amber-50 px-2 py-0.5 rounded shrink-0">{duty.tipe}</span>}
                                              </div>
                                           ))}
                                        </div>
@@ -279,11 +287,13 @@ export default function TabOperasional({ user }) {
         </div>
 
         {/* ZONA 3: HOUSEKEEPING SOP */}
-        <div className="bg-emerald-50 rounded-3xl p-6 border border-emerald-200 shadow-sm flex flex-col max-h-[800px]">
-          <div className="flex justify-between items-center mb-4 border-b border-emerald-200/50 pb-4 shrink-0">
+        <div className="bg-emerald-50/50 rounded-3xl p-6 md:p-8 border border-emerald-100/80 shadow-sm flex flex-col max-h-[800px]">
+          <div className="flex justify-between items-center mb-5 border-b border-emerald-200/50 pb-5 shrink-0">
             <div>
-               <h2 className="font-black text-emerald-800 text-lg flex items-center gap-2"><ClipboardCheck className="text-emerald-500"/> Housekeeping (Area)</h2>
-               <p className="text-[10px] font-bold text-emerald-700/70 mt-1 uppercase tracking-widest">Tugas kebersihan Zona Ruko</p>
+               <h2 className="text-lg font-extrabold text-emerald-900 flex items-center gap-2">
+                 <ClipboardCheck size={20} strokeWidth={1.5} className="text-emerald-600"/> Housekeeping (Area)
+               </h2>
+               <p className="text-[12px] font-medium text-emerald-700/80 mt-1 md:ml-[28px]">Tugas kebersihan Zona Ruko</p>
             </div>
             <button 
                onClick={() => { 
@@ -291,41 +301,45 @@ export default function TabOperasional({ user }) {
                  setHkForm({ id: null, outlet_id: '', area: 'Indoor', zona: 'Area Potong', phase: 'Closing', no_urut: 1, rincian_jobdesk: '', wajib_foto: true, is_active: true }); 
                  setIsModalHkOpen(true); 
                }} 
-               className="p-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 shadow-md active:scale-95 transition-all"
+               className="p-3 bg-emerald-500 text-white rounded-2xl hover:bg-emerald-600 shadow-md shadow-emerald-200 active:scale-95 transition-all focus:outline-none"
             >
-               <Plus size={18}/>
+               <Plus size={18} strokeWidth={1.5}/>
             </button>
           </div>
           
-          <div className="space-y-4 overflow-y-auto pr-2 flex-1 no-scrollbar pb-4">
+          <div className="space-y-5 overflow-y-auto pr-2 flex-1 no-scrollbar pb-4">
             {isLoading ? (
-               <div className="text-center p-4 text-emerald-600/50 font-bold text-sm">Memuat jobdesk...</div>
+               <div className="text-center p-8 text-emerald-600/50 font-medium">Memuat jobdesk...</div>
             ) : Object.keys(groupedHousekeeping).length === 0 ? (
-               <p className="text-center text-sm font-bold text-emerald-500 py-4 border-2 border-dashed border-emerald-200 rounded-xl">Belum ada jobdesk.</p>
+               <p className="text-center text-sm font-medium text-emerald-600/70 py-10 border border-dashed border-emerald-200 bg-white rounded-3xl">Belum ada jobdesk.</p>
             ) : (
                Object.keys(groupedHousekeeping).map(area => (
-                  <div key={area} className="bg-white border border-emerald-100 rounded-2xl overflow-hidden shadow-sm">
-                     <div className="bg-emerald-100 px-4 py-2 font-black text-emerald-900 flex items-center gap-2"><Map size={16}/> AREA: {area}</div>
+                  <div key={area} className="bg-white border border-emerald-100 rounded-3xl overflow-hidden shadow-sm">
+                     <div className="bg-emerald-100/50 px-5 py-3 font-extrabold text-[13px] text-emerald-900 flex items-center gap-2 tracking-wider">
+                       <Map size={16} strokeWidth={1.5}/> AREA: {area}
+                     </div>
                      
-                     <div className="p-3 space-y-3">
+                     <div className="p-4 md:p-5 space-y-4">
                         {Object.keys(groupedHousekeeping[area]).map(phase => (
-                           <div key={phase} className="pl-3 border-l-2 border-emerald-200">
-                              <div className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Layers size={12}/> PHASE: {phase}</div>
+                           <div key={phase} className="pl-4 border-l-2 border-emerald-200">
+                              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                <Layers size={14} strokeWidth={1.5}/> PHASE: {phase}
+                              </div>
                               
-                              <div className="space-y-2">
+                              <div className="space-y-3">
                                  {Object.keys(groupedHousekeeping[area][phase]).map(zona => (
-                                    <div key={zona} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                       <div className="text-[10px] font-bold text-amber-600 uppercase mb-2 bg-amber-50 inline-block px-2 py-0.5 rounded">ZONA: {zona}</div>
-                                       <div className="space-y-1.5">
+                                    <div key={zona} className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100">
+                                       <div className="text-[10px] font-extrabold text-amber-700 uppercase mb-2.5 bg-amber-50 inline-block px-2.5 py-1 rounded-md tracking-wider">ZONA: {zona}</div>
+                                       <div className="space-y-2">
                                           {groupedHousekeeping[area][phase][zona].map(hk => (
                                              <div 
                                                 key={hk.id} 
                                                 onClick={() => { setHkMode('edit'); setHkForm(hk); setIsModalHkOpen(true); }} 
-                                                className="flex justify-between items-center p-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-emerald-400 hover:shadow-sm transition-all group"
+                                                className="flex justify-between items-center p-3 bg-white border border-slate-200/80 rounded-xl cursor-pointer hover:border-emerald-400 hover:shadow-sm transition-all group"
                                              >
                                                 <div className="flex-1">
-                                                   <p className="text-sm font-bold text-slate-800">{hk.no_urut}. {hk.rincian_jobdesk}</p>
-                                                   {hk.wajib_foto && <p className="text-[9px] font-black text-rose-500 uppercase mt-0.5">📸 Wajib Upload Foto</p>}
+                                                   <p className="text-[13px] font-semibold text-slate-800 leading-snug">{hk.no_urut}. {hk.rincian_jobdesk}</p>
+                                                   {hk.wajib_foto && <p className="text-[10px] font-bold text-rose-500 mt-1 flex items-center gap-1"><Camera size={14} strokeWidth={1.5}/> Wajib Foto</p>}
                                                 </div>
                                              </div>
                                           ))}
@@ -350,7 +364,7 @@ export default function TabOperasional({ user }) {
       {/* MODAL SHIFT */}
          {isModalShiftOpen && (
             <div
-               className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
+               className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in"
                tabIndex={-1}
                aria-modal="true"
                role="dialog"
@@ -359,37 +373,37 @@ export default function TabOperasional({ user }) {
                 <div
                    ref={shiftModalRef}
                    tabIndex={0}
-                   className="bg-white w-full max-w-sm rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95 outline-none"
+                   className="bg-white w-full max-w-sm rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 outline-none"
                 >
-                  <div className="p-5 border-b flex justify-between items-center bg-indigo-50 border-indigo-100">
-                      <h2 className="font-black text-indigo-900">Master Shift</h2>
-                      <button onClick={() => setIsModalShiftOpen(false)} className="text-indigo-500 hover:bg-white rounded-full p-1 focus:outline-none focus:ring-2 focus:ring-indigo-400" aria-label="Tutup modal"><X size={20}/></button>
+                  <div className="px-6 py-5 border-b flex justify-between items-center bg-white">
+                      <h2 className="font-extrabold text-slate-900 text-lg flex items-center gap-2"><Clock size={20} className="text-indigo-500"/> Master Shift</h2>
+                      <button onClick={() => setIsModalShiftOpen(false)} className="text-slate-400 hover:bg-slate-100 rounded-full p-2 focus:outline-none" aria-label="Tutup modal"><X size={20} strokeWidth={1.5}/></button>
                   </div>
-                  <form onSubmit={handleSaveShift} className="p-5 space-y-4">
+                  <form onSubmit={handleSaveShift} className="p-6 space-y-5 bg-slate-50/50">
                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase">Berlaku di Cabang</label>
-                  <select required value={shiftForm.outlet_id || ''} onChange={e => setShiftForm({...shiftForm, outlet_id: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-indigo-500">
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Berlaku di Cabang</label>
+                  <select required value={shiftForm.outlet_id || ''} onChange={e => setShiftForm({...shiftForm, outlet_id: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-medium outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all appearance-none">
                      <option value="" disabled>-- Pilih Cabang --</option>
                      {outletList.map(o => <option key={o.id} value={o.id}>{o.nama_outlet}</option>)}
                   </select>
                </div>
                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase">Nama Shift</label>
-                  <input required value={shiftForm.nama_shift} onChange={e => setShiftForm({...shiftForm, nama_shift: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-indigo-500" placeholder="Pagi / Malam"/>
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Nama Shift</label>
+                  <input required value={shiftForm.nama_shift || ''} onChange={e => setShiftForm({...shiftForm, nama_shift: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-medium outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all" placeholder="Pagi / Malam"/>
                </div>
                <div className="grid grid-cols-2 gap-4">
                   <div>
-                     <label className="text-[10px] font-black text-slate-400 uppercase">Jam Mulai</label>
-                     <input type="time" required value={shiftForm.jam_mulai} onChange={e => setShiftForm({...shiftForm, jam_mulai: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-indigo-500"/>
+                     <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Jam Mulai</label>
+                     <input type="time" required value={shiftForm.jam_mulai || ''} onChange={e => setShiftForm({...shiftForm, jam_mulai: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-bold outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all"/>
                   </div>
                   <div>
-                     <label className="text-[10px] font-black text-slate-400 uppercase">Jam Selesai</label>
-                     <input type="time" required value={shiftForm.jam_selesai} onChange={e => setShiftForm({...shiftForm, jam_selesai: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-indigo-500"/>
+                     <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Jam Selesai</label>
+                     <input type="time" required value={shiftForm.jam_selesai || ''} onChange={e => setShiftForm({...shiftForm, jam_selesai: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-bold outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all"/>
                   </div>
                </div>
-               <div className="flex gap-2 mt-4">
-                 {shiftMode === 'edit' && <button type="button" onClick={() => handleDeleteSOP('shifts', shiftForm.id)} className="p-3 bg-rose-100 text-rose-600 rounded-xl hover:bg-rose-200 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-400" aria-label="Hapus Shift"><Trash2 size={20}/></button>}
-                 <button type="submit" disabled={isSavingShift} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-black shadow-lg shadow-indigo-200 active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400 flex items-center justify-center gap-2" aria-label="Simpan Shift">{isSavingShift ? <span className="animate-spin mr-2 w-5 h-5 border-2 border-white border-t-transparent rounded-full"></span> : null}Simpan Shift</button>
+               <div className="flex gap-3 pt-2">
+                 {shiftMode === 'edit' && <button type="button" onClick={() => handleDeleteSOP('shifts', shiftForm.id)} className="p-3.5 bg-white border border-rose-200 text-rose-600 rounded-2xl hover:bg-rose-50 transition-colors focus:outline-none" aria-label="Hapus Shift"><Trash2 size={20} strokeWidth={1.5}/></button>}
+                 <button type="submit" disabled={isSavingShift} className="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-3.5 rounded-2xl font-bold shadow-md active:scale-[0.98] transition-all focus:outline-none flex items-center justify-center gap-2" aria-label="Simpan Shift">{isSavingShift ? <Loader2 size={18} className="animate-spin"/> : null}Simpan Shift</button>
                </div>
             </form>
            </div>
@@ -399,7 +413,7 @@ export default function TabOperasional({ user }) {
       {/* MODAL DAILY DUTY */}
          {isModalDailyOpen && (
             <div
-               className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
+               className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in"
                tabIndex={-1}
                aria-modal="true"
                role="dialog"
@@ -408,32 +422,32 @@ export default function TabOperasional({ user }) {
                 <div
                    ref={dailyModalRef}
                    tabIndex={0}
-                   className="bg-white w-full max-w-md rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95 outline-none"
+                   className="bg-white w-full max-w-md rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 outline-none"
                 >
-                  <div className="p-5 border-b flex justify-between items-center bg-sky-50 border-sky-100">
-                      <h2 className="font-black text-sky-900">Form Daily Duty</h2>
-                      <button onClick={() => setIsModalDailyOpen(false)} className="text-sky-500 hover:bg-white rounded-full p-1 focus:outline-none focus:ring-2 focus:ring-sky-400" aria-label="Tutup modal"><X size={20}/></button>
+                  <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-white">
+                      <h2 className="font-extrabold text-slate-900 text-lg flex items-center gap-2"><ClipboardList size={20} className="text-sky-500"/> Form Daily Duty</h2>
+                      <button onClick={() => setIsModalDailyOpen(false)} className="text-slate-400 hover:bg-slate-100 rounded-full p-2 focus:outline-none" aria-label="Tutup modal"><X size={20} strokeWidth={1.5}/></button>
                   </div>
-                  <form onSubmit={handleSaveDailyDuty} className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+                  <form onSubmit={handleSaveDailyDuty} className="p-6 space-y-5 max-h-[75vh] overflow-y-auto bg-slate-50/50">
                <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
-                     <label className="text-[10px] font-black text-slate-400 uppercase">Cabang</label>
-                     <select required value={dailyForm.outlet_id || ''} onChange={e => setDailyForm({...dailyForm, outlet_id: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-sky-500">
+                     <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Cabang</label>
+                     <select required value={dailyForm.outlet_id || ''} onChange={e => setDailyForm({...dailyForm, outlet_id: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-medium outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-50 appearance-none transition-all">
                         <option value="" disabled>-- Pilih Cabang --</option>
                         {outletList.map(o => <option key={o.id} value={o.id}>{o.nama_outlet}</option>)}
                      </select>
                   </div>
                   <div>
-                     <label className="text-[10px] font-black text-slate-400 uppercase">Target Role</label>
-                     <select required value={dailyForm.role} onChange={e => setDailyForm({...dailyForm, role: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-sky-500">
+                     <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Target Role</label>
+                     <select required value={dailyForm.role || 'FO'} onChange={e => setDailyForm({...dailyForm, role: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-medium outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-50 appearance-none transition-all">
                         <option value="FO">Front Office</option>
                         <option value="Capster">Capster</option>
                         <option value="Manager">Manager</option>
                      </select>
                   </div>
                   <div>
-                     <label className="text-[10px] font-black text-slate-400 uppercase">Phase (Fase Waktu)</label>
-                     <select required value={dailyForm.phase} onChange={e => setDailyForm({...dailyForm, phase: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-sky-500">
+                     <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Phase Waktu</label>
+                     <select required value={dailyForm.phase || 'Opening'} onChange={e => setDailyForm({...dailyForm, phase: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-medium outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-50 appearance-none transition-all">
                         <option value="PraOpening">PraOpening</option>
                         <option value="Opening">Opening</option>
                         <option value="Closing">Closing</option>
@@ -443,21 +457,21 @@ export default function TabOperasional({ user }) {
                </div>
                <div className="grid grid-cols-4 gap-4">
                   <div className="col-span-3">
-                     <label className="text-[10px] font-black text-slate-400 uppercase">Fase Kategori</label>
-                     <input required value={dailyForm.fase_kategori} onChange={e => setDailyForm({...dailyForm, fase_kategori: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-sky-500" placeholder="Misal: Persiapan Alat"/>
+                     <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Fase Kategori</label>
+                     <input required value={dailyForm.fase_kategori || ''} onChange={e => setDailyForm({...dailyForm, fase_kategori: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-medium outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-50 transition-all" placeholder="Misal: Persiapan Alat"/>
                   </div>
                   <div>
-                     <label className="text-[10px] font-black text-slate-400 uppercase">Urutan</label>
-                     <input type="number" required value={dailyForm.urutan} onChange={e => setDailyForm({...dailyForm, urutan: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm text-center outline-none focus:border-sky-500"/>
+                     <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Urutan</label>
+                     <input type="number" required value={dailyForm.urutan || ''} onChange={e => setDailyForm({...dailyForm, urutan: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-bold text-center outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-50 transition-all"/>
                   </div>
                </div>
                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase">Aktivitas / Jobdesk</label>
-                  <textarea required rows="2" value={dailyForm.aktivitas} onChange={e => setDailyForm({...dailyForm, aktivitas: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-sky-500" placeholder="Misal: Hitung modal laci..."></textarea>
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Aktivitas / Jobdesk</label>
+                  <textarea required rows="2" value={dailyForm.aktivitas || ''} onChange={e => setDailyForm({...dailyForm, aktivitas: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-medium outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-50 transition-all resize-none" placeholder="Misal: Hitung modal laci..."></textarea>
                </div>
-               <div className="flex gap-2 mt-4">
-                 {dailyMode === 'edit' && <button type="button" onClick={() => handleDeleteSOP('daily_duty_sops', dailyForm.id)} className="p-3 bg-rose-100 text-rose-600 rounded-xl hover:bg-rose-200 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-400" aria-label="Hapus Daily Duty"><Trash2 size={20}/></button>}
-                 <button type="submit" disabled={isSavingDaily} className="flex-1 bg-sky-600 hover:bg-sky-700 text-white py-3 rounded-xl font-black shadow-lg shadow-sky-200 active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-sky-400 flex items-center justify-center gap-2" aria-label="Simpan Daily Duty">{isSavingDaily ? <span className="animate-spin mr-2 w-5 h-5 border-2 border-white border-t-transparent rounded-full"></span> : null}Simpan Daily Duty</button>
+               <div className="flex gap-3 pt-2">
+                 {dailyMode === 'edit' && <button type="button" onClick={() => handleDeleteSOP('daily_duty_sops', dailyForm.id)} className="p-3.5 bg-white border border-rose-200 text-rose-600 rounded-2xl hover:bg-rose-50 transition-colors focus:outline-none" aria-label="Hapus Daily Duty"><Trash2 size={20} strokeWidth={1.5}/></button>}
+                 <button type="submit" disabled={isSavingDaily} className="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-3.5 rounded-2xl font-bold shadow-md active:scale-[0.98] transition-all focus:outline-none flex items-center justify-center gap-2" aria-label="Simpan Daily Duty">{isSavingDaily ? <Loader2 size={18} className="animate-spin"/> : null}Simpan Daily Duty</button>
                </div>
             </form>
            </div>
@@ -467,7 +481,7 @@ export default function TabOperasional({ user }) {
       {/* MODAL HOUSEKEEPING */}
          {isModalHkOpen && (
             <div
-               className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
+               className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in"
                tabIndex={-1}
                aria-modal="true"
                role="dialog"
@@ -476,32 +490,32 @@ export default function TabOperasional({ user }) {
                 <div
                    ref={hkModalRef}
                    tabIndex={0}
-                   className="bg-white w-full max-w-md rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95 outline-none"
+                   className="bg-white w-full max-w-md rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 outline-none"
                 >
-                  <div className="p-5 border-b flex justify-between items-center bg-emerald-50 border-emerald-100">
-                      <h2 className="font-black text-emerald-900">Form Housekeeping</h2>
-                      <button onClick={() => setIsModalHkOpen(false)} className="text-emerald-500 hover:bg-white rounded-full p-1 focus:outline-none focus:ring-2 focus:ring-emerald-400" aria-label="Tutup modal"><X size={20}/></button>
+                  <div className="px-6 py-5 border-b flex justify-between items-center bg-white">
+                      <h2 className="font-extrabold text-slate-900 text-lg flex items-center gap-2"><ClipboardCheck size={20} className="text-emerald-500"/> Form Housekeeping</h2>
+                      <button onClick={() => setIsModalHkOpen(false)} className="text-slate-400 hover:bg-slate-100 rounded-full p-2 focus:outline-none" aria-label="Tutup modal"><X size={20} strokeWidth={1.5}/></button>
                   </div>
-                  <form onSubmit={handleSaveHousekeeping} className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+                  <form onSubmit={handleSaveHousekeeping} className="p-6 space-y-5 max-h-[75vh] overflow-y-auto bg-slate-50/50">
                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase">Cabang</label>
-                  <select required value={hkForm.outlet_id || ''} onChange={e => setHkForm({...hkForm, outlet_id: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-emerald-500">
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Cabang</label>
+                  <select required value={hkForm.outlet_id || ''} onChange={e => setHkForm({...hkForm, outlet_id: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-medium outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50 transition-all appearance-none">
                      <option value="" disabled>-- Pilih Cabang --</option>
                      {outletList.map(o => <option key={o.id} value={o.id}>{o.nama_outlet}</option>)}
                   </select>
                </div>
                <div className="grid grid-cols-2 gap-4">
                   <div>
-                     <label className="text-[10px] font-black text-slate-400 uppercase">Area</label>
-                     <select required value={hkForm.area} onChange={e => setHkForm({...hkForm, area: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-emerald-500">
+                     <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Area</label>
+                     <select required value={hkForm.area || 'Area 1'} onChange={e => setHkForm({...hkForm, area: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-medium outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50 transition-all appearance-none">
                         <option value="Area 1">Area 1</option>
                         <option value="Area 2">Area 2</option>
                         <option value="Area 3">Area 3</option>
                      </select>
                   </div>
                   <div>
-                     <label className="text-[10px] font-black text-slate-400 uppercase">Phase (Waktu)</label>
-                     <select required value={hkForm.phase} onChange={e => setHkForm({...hkForm, phase: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-emerald-500">
+                     <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Phase Waktu</label>
+                     <select required value={hkForm.phase || 'Opening'} onChange={e => setHkForm({...hkForm, phase: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-medium outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50 transition-all appearance-none">
                         <option value="Opening">PraOpening</option>
                         <option value="Closing">Closing</option>
                      </select>
@@ -509,30 +523,30 @@ export default function TabOperasional({ user }) {
                </div>
                <div className="grid grid-cols-4 gap-4">
                   <div className="col-span-3">
-                     <label className="text-[10px] font-black text-slate-400 uppercase">Zona Spesifik</label>
-                     <input required value={hkForm.zona} onChange={e => setHkForm({...hkForm, zona: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-emerald-500" placeholder="Misal: Toilet / Area Potong"/>
+                     <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Zona Spesifik</label>
+                     <input required value={hkForm.zona || ''} onChange={e => setHkForm({...hkForm, zona: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-medium outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50 transition-all" placeholder="Misal: Toilet / Area Potong"/>
                   </div>
                   <div>
-                     <label className="text-[10px] font-black text-slate-400 uppercase">No. Urut</label>
-                     <input type="number" required value={hkForm.no_urut} onChange={e => setHkForm({...hkForm, no_urut: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm text-center outline-none focus:border-emerald-500"/>
+                     <label className="text-xs font-semibold text-slate-600 mb-1.5 block">No. Urut</label>
+                     <input type="number" required value={hkForm.no_urut || ''} onChange={e => setHkForm({...hkForm, no_urut: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-bold text-center outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50 transition-all"/>
                   </div>
                </div>
                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase">Rincian Kebersihan / Jobdesk</label>
-                  <textarea required rows="2" value={hkForm.rincian_jobdesk} onChange={e => setHkForm({...hkForm, rincian_jobdesk: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-emerald-500" placeholder="Misal: Sapu & pel lantai..."></textarea>
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Rincian Kebersihan</label>
+                  <textarea required rows="2" value={hkForm.rincian_jobdesk || ''} onChange={e => setHkForm({...hkForm, rincian_jobdesk: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-medium outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50 transition-all resize-none" placeholder="Misal: Sapu & pel lantai..."></textarea>
                </div>
                
-               <label className="flex items-center gap-3 p-4 bg-rose-50 border border-rose-200 rounded-xl cursor-pointer">
-                 <input type="checkbox" checked={hkForm.wajib_foto} onChange={e => setHkForm({...hkForm, wajib_foto: e.target.checked})} className="w-5 h-5 accent-rose-600"/>
+               <label className="flex items-center gap-4 p-4 bg-white border border-rose-200/60 rounded-2xl cursor-pointer hover:bg-rose-50/50 transition-colors">
+                 <input type="checkbox" checked={hkForm.wajib_foto || false} onChange={e => setHkForm({...hkForm, wajib_foto: e.target.checked})} className="w-5 h-5 accent-rose-500 rounded"/>
                  <div>
-                    <p className="font-bold text-rose-800 text-sm">Wajib Upload Foto Bukti?</p>
-                    <p className="text-[10px] text-rose-600">Sistem akan menagih foto saat karyawan tutup shift.</p>
+                    <p className="font-bold text-slate-800 text-[14px]">Wajib Upload Foto Bukti?</p>
+                    <p className="text-[11px] text-slate-500 font-medium mt-0.5">Sistem akan menagih foto saat karyawan tutup shift.</p>
                  </div>
                </label>
 
-               <div className="flex gap-2 mt-4">
-                 {hkMode === 'edit' && <button type="button" onClick={() => handleDeleteSOP('housekeeping_sops', hkForm.id)} className="p-3 bg-rose-100 text-rose-600 rounded-xl hover:bg-rose-200 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-400" aria-label="Hapus Housekeeping"><Trash2 size={20}/></button>}
-                 <button type="submit" disabled={isSavingHk} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-black shadow-lg shadow-emerald-200 active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 flex items-center justify-center gap-2" aria-label="Simpan Housekeeping">{isSavingHk ? <span className="animate-spin mr-2 w-5 h-5 border-2 border-white border-t-transparent rounded-full"></span> : null}Simpan Housekeeping</button>
+               <div className="flex gap-3 pt-2">
+                 {hkMode === 'edit' && <button type="button" onClick={() => handleDeleteSOP('housekeeping_sops', hkForm.id)} className="p-3.5 bg-white border border-rose-200 text-rose-600 rounded-2xl hover:bg-rose-50 transition-colors focus:outline-none" aria-label="Hapus Housekeeping"><Trash2 size={20} strokeWidth={1.5}/></button>}
+                 <button type="submit" disabled={isSavingHk} className="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-3.5 rounded-2xl font-bold shadow-md active:scale-[0.98] transition-all focus:outline-none flex items-center justify-center gap-2" aria-label="Simpan Housekeeping">{isSavingHk ? <Loader2 size={18} className="animate-spin"/> : null}Simpan Housekeeping</button>
                </div>
             </form>
            </div>

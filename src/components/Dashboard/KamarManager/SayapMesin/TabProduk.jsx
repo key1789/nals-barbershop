@@ -47,16 +47,13 @@ export default function TabProduk({ user }) {
     };
   }, [isModalOpen, isStockModalOpen]);
 
-  // ==========================================
-  // FUNGSI TARIK DATA (KHUSUS PRODUK)
-  // ==========================================
   const fetchData = async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('products_services')
         .select('*')
-        .eq('tipe', 'Product') // Cuma narik yang tipenya Product
+        .eq('tipe', 'Product') 
         .order('nama_item', { ascending: true });
         
       if (error) throw error;
@@ -70,9 +67,6 @@ export default function TabProduk({ user }) {
 
   useEffect(() => { fetchData(); }, []);
 
-  // ==========================================
-  // FUNGSI HANDLER PRODUK
-  // ==========================================
   const handleToggleStatus = async (id, currentStatus) => { 
     try { 
       await supabase.from('products_services').update({ is_active: !currentStatus }).eq('id', id); 
@@ -95,7 +89,7 @@ export default function TabProduk({ user }) {
       };
 
       if (mode === 'add') { 
-        payload.stok = 0; // Stok cuma 0 di awal, ngisinya lewat mutasi
+        payload.stok = 0; 
         await supabase.from('products_services').insert([payload]); 
       } else { 
         await supabase.from('products_services').update(payload).eq('id', formData.id); 
@@ -109,9 +103,6 @@ export default function TabProduk({ user }) {
     }
   };
 
-  // ==========================================
-  // FUNGSI HANDLER STOCK OPNAME
-  // ==========================================
   const handleSaveStock = async (e) => {
     e.preventDefault(); 
     if (!stockForm.product_id) return alert("Pilih produknya dulu!");
@@ -130,7 +121,6 @@ export default function TabProduk({ user }) {
 
       if (newStok < 0) throw new Error("Stok fisik tidak cukup sampai minus!");
 
-      // Catat di tabel CCTV mutasi (stock_logs)
       await supabase.from('stock_logs').insert([{ 
         product_id: stockForm.product_id, 
         jenis_mutasi: stockForm.jenis_mutasi, 
@@ -139,7 +129,6 @@ export default function TabProduk({ user }) {
         user_id: user?.id || null 
       }]);
       
-      // Update Saldo Akhir
       await supabase.from('products_services').update({ stok: newStok }).eq('id', stockForm.product_id);
       
       setIsStockModalOpen(false); 
@@ -153,9 +142,6 @@ export default function TabProduk({ user }) {
     }
   };
 
-  // ==========================================
-  // GROUPING UI (KATEGORI)
-  // ==========================================
   const productsByCategory = productsList.reduce((acc, prod) => {
     const kat = prod.kategori || 'Lainnya';
     if (!acc[kat]) acc[kat] = [];
@@ -164,22 +150,25 @@ export default function TabProduk({ user }) {
   }, {});
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 min-h-[100dvh]">
+    <div className="space-y-6 px-1 md:px-2 animate-in fade-in duration-300 min-h-[100dvh]">
       
       {/* HEADER TAB */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-200 pb-4 gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-200/80 pb-5 gap-4 mt-2">
          <div>
-            <h2 className="font-black text-slate-800 text-lg flex items-center gap-2">
-               <Package className="text-emerald-500"/> Gudang Retail
+            <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
+               <div className="p-2.5 bg-emerald-50 rounded-2xl text-emerald-500 border border-emerald-100/50">
+                 <Package size={22} strokeWidth={1.5}/>
+               </div>
+               Gudang Retail
             </h2>
-            <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Master data barang & stok</p>
+            <p className="text-[14px] font-medium text-slate-500 mt-1.5 md:ml-[54px]">Master data barang dan persediaan stok</p>
          </div>
-         <div className="flex gap-2 w-full md:w-auto">
+         <div className="flex gap-3 w-full md:w-auto">
             <button 
                onClick={() => setIsStockModalOpen(true)} 
-               className="flex-1 md:flex-none bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 active:scale-95"
+               className="flex-1 md:flex-none bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/60 px-5 py-3 rounded-2xl font-semibold text-[14px] shadow-sm transition-all flex items-center justify-center gap-2 active:scale-95 focus:outline-none"
             >
-               <ClipboardList size={18} /> Stock Opname
+               <ClipboardList size={18} strokeWidth={1.5} /> Stock Opname
             </button>
             <button 
                onClick={() => { 
@@ -187,49 +176,75 @@ export default function TabProduk({ user }) {
                   setFormData({ id: null, nama_item: '', tipe: 'Product', kategori: 'Grooming', harga_jual: 0, hpp: 0, vendor_name: '', is_active: true }); 
                   setIsModalOpen(true); 
                }} 
-               className="flex-1 md:flex-none bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 active:scale-95"
+               className="flex-1 md:flex-none bg-slate-900 hover:bg-slate-800 text-white px-5 py-3 rounded-2xl font-semibold text-[14px] shadow-md shadow-slate-900/10 transition-all flex items-center justify-center gap-2 active:scale-95 focus:outline-none"
             >
-               <Plus size={18} /> Produk Baru
+               <Plus size={18} strokeWidth={1.5} /> Produk Baru
             </button>
          </div>
       </div>
 
       {/* LIST KARTU PRODUK BY KATEGORI */}
       {isLoading ? (
-        <div className="text-center p-8 text-slate-400 animate-pulse font-bold">Memuat gudang...</div>
+        <div className="text-center p-12 text-slate-400 animate-pulse font-medium flex flex-col items-center">
+          <Loader2 size={32} strokeWidth={1.5} className="animate-spin mb-3 text-emerald-400"/>
+          Memuat gudang...
+        </div>
       ) : productsList.length === 0 ? (
-        <div className="text-center p-8 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-bold text-sm">Belum ada produk yang didaftarkan.</div>
+        <div className="text-center p-16 border border-dashed border-slate-300 bg-slate-50/50 rounded-3xl text-slate-500 font-medium flex flex-col items-center">
+          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 border border-slate-200 shadow-sm">
+            <Package size={28} strokeWidth={1.5} className="text-slate-400"/>
+          </div>
+          Belum ada produk yang didaftarkan.
+        </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
           {Object.keys(productsByCategory).map(kategori => (
-            <div key={kategori} className="space-y-3">
-               <h2 className="flex items-center gap-2 text-sm font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 pb-2">
-                 <Box size={16} className="text-emerald-400"/> {kategori}
+            <div key={kategori} className="space-y-4">
+               <h2 className="flex items-center gap-2 text-[13px] font-bold text-slate-800 uppercase tracking-widest border-b border-slate-100 pb-2">
+                 <Box size={16} strokeWidth={1.5} className="text-emerald-500"/> {kategori}
                </h2>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+               
+               {/* PERBAIKAN LAYOUT: 
+                 Pakai xl:grid-cols-3 dan md:grid-cols-2 biar kotak punya nafas lega di PC.
+               */}
+               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                  {productsByCategory[kategori].map(item => (
                     <div 
                       key={item.id} 
                       onClick={() => { setMode('edit'); setFormData(item); setIsModalOpen(true); }} 
-                      className={`bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between transition-all hover:border-emerald-300 hover:shadow-md cursor-pointer ${!item.is_active ? 'opacity-50 grayscale-[50%] bg-slate-50' : ''}`}
+                      className={`bg-white p-4 md:p-5 rounded-3xl shadow-sm border border-slate-200/60 flex items-center justify-between gap-3 transition-all hover:border-emerald-300 hover:shadow-md cursor-pointer ${!item.is_active ? 'opacity-60 grayscale-[40%] bg-slate-50' : ''}`}
                     >
-                      <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-inner ${item.is_active ? 'bg-emerald-500' : 'bg-slate-300'}`}>
-                          <Package size={24}/>
+                      
+                      {/* PERBAIKAN: min-w-0 flex-1 memaksa teks gak nabrak tombol toggle */}
+                      <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
+                        
+                        {/* PERBAIKAN: Hapus text-white yang bikin konflik warna */}
+                        <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center shrink-0 border ${item.is_active ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>
+                          <Package size={24} strokeWidth={1.5}/>
                         </div>
-                        <div>
-                          <h3 className={`font-bold ${item.is_active ? 'text-slate-800' : 'text-slate-400 line-through'}`}>{item.nama_item}</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs font-black text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">Rp {Number(item.harga_jual).toLocaleString('id-ID')}</span>
-                            <span className={`text-xs font-bold flex items-center gap-1 px-2 py-0.5 rounded-md ${item.stok <= 5 ? 'bg-rose-100 text-rose-600 animate-pulse' : 'bg-emerald-50 text-emerald-600'}`}>
-                              <Box size={12}/> Stok: {item.stok}
+
+                        {/* Container teks dengan truncate dan wrap */}
+                        <div className="min-w-0 flex-1">
+                          <h3 className={`font-bold text-[14px] md:text-[15px] truncate ${item.is_active ? 'text-slate-900' : 'text-slate-500 line-through'}`}>
+                            {item.nama_item}
+                          </h3>
+                          <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                            <span className="text-[11px] md:text-[12px] font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full truncate">
+                              Rp {Number(item.harga_jual).toLocaleString('id-ID')}
+                            </span>
+                            <span className={`text-[11px] md:text-[12px] font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-full border shrink-0 ${item.stok <= 5 ? 'bg-rose-50 border-rose-100 text-rose-600 animate-pulse' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
+                              <Box size={12} strokeWidth={1.5}/> Stok: {item.stok}
                             </span>
                           </div>
                         </div>
+
                       </div>
-                      <button onClick={(e) => { e.stopPropagation(); handleToggleStatus(item.id, item.is_active); }} className="text-slate-400 hover:text-emerald-600 transition-colors">
-                        {item.is_active ? <ToggleRight size={36} className="text-emerald-500" /> : <ToggleLeft size={36} />}
+
+                      {/* Tombol Toggle aman karena dapet shrink-0 */}
+                      <button onClick={(e) => { e.stopPropagation(); handleToggleStatus(item.id, item.is_active); }} className="text-slate-400 hover:text-emerald-600 transition-colors focus:outline-none shrink-0 ml-1">
+                        {item.is_active ? <ToggleRight size={32} strokeWidth={1.5} className="text-emerald-500" /> : <ToggleLeft size={32} strokeWidth={1.5} />}
                       </button>
+
                     </div>
                  ))}
                </div>
@@ -243,7 +258,7 @@ export default function TabProduk({ user }) {
           ========================================= */}
       {isModalOpen && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in"
           tabIndex={-1}
           aria-modal="true"
           role="dialog"
@@ -252,30 +267,33 @@ export default function TabProduk({ user }) {
           <div
             ref={modalRef}
             tabIndex={0}
-            className="bg-white w-full max-w-md rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 outline-none"
+            className="bg-white w-full max-w-md rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 outline-none"
           >
-            <div className="p-5 border-b flex justify-between items-center bg-emerald-50 border-emerald-100">
-              <h2 className="font-black text-emerald-900 flex items-center gap-2">
-                 <Package size={20} className="text-emerald-600"/> 
+            <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-white">
+              <h2 className="font-extrabold text-slate-900 text-lg tracking-tight flex items-center gap-2">
+                 <Package size={20} strokeWidth={1.5} className="text-emerald-500"/> 
                  {mode === 'add' ? `Tambah Produk Baru` : `Edit Produk`}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="p-1 hover:bg-white rounded-full text-emerald-600 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-400" aria-label="Tutup modal"><X size={20} /></button>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-900 transition-colors focus:outline-none" aria-label="Tutup modal"><X size={20} strokeWidth={1.5} /></button>
             </div>
 
-            <form onSubmit={handleSaveProduct} className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+            <form onSubmit={handleSaveProduct} className="p-6 space-y-5 bg-slate-50/50 max-h-[75vh] overflow-y-auto">
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Produk</label>
-                <input required value={formData.nama_item} onChange={(e) => setFormData({...formData, nama_item: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-emerald-500 transition-colors" placeholder="Misal: Pomade Suavecito..." />
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Nama Produk</label>
+                {/* PERBAIKAN NULL WARNING: || '' */}
+                <input required value={formData.nama_item || ''} onChange={(e) => setFormData({...formData, nama_item: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-medium text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100 transition-all" placeholder="Misal: Pomade Suavecito..." />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Harga Jual (Rp)</label>
-                  <input type="number" required value={formData.harga_jual} onChange={(e) => setFormData({...formData, harga_jual: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-emerald-500 transition-colors" />
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Harga Jual (Rp)</label>
+                  {/* PERBAIKAN NULL WARNING: || '' */}
+                  <input type="number" required value={formData.harga_jual || ''} onChange={(e) => setFormData({...formData, harga_jual: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-bold text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100 transition-all" />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kategori</label>
-                  <select value={formData.kategori} onChange={(e) => setFormData({...formData, kategori: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-emerald-500 transition-colors">
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Kategori</label>
+                  {/* PERBAIKAN NULL WARNING: || 'Grooming' */}
+                  <select value={formData.kategori || 'Grooming'} onChange={(e) => setFormData({...formData, kategori: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-medium text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100 transition-all appearance-none">
                     <option value="Grooming">Grooming (Rambut/Wajah)</option>
                     <option value="F&B">F&B (Makanan/Minuman)</option>
                     <option value="Other">Lainnya</option>
@@ -283,25 +301,29 @@ export default function TabProduk({ user }) {
                 </div>
               </div>
 
-              <div className="space-y-4 p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl">
+              <div className="space-y-4 p-5 bg-emerald-50/50 border border-emerald-100 rounded-3xl">
                 {mode === 'edit' && (
-                   <div className="bg-amber-100 text-amber-800 p-3 rounded-xl text-xs font-bold text-center border border-amber-200">
-                     ⚠️ Stok saat ini: {formData.stok}.<br/>Gunakan menu <span className="inline-flex items-center gap-1 bg-amber-200 px-1 rounded"><ClipboardList size={10}/> Stock Opname</span> untuk mengubah stok fisik.
+                   <div className="bg-amber-50 text-amber-800 p-4 rounded-2xl text-[13px] font-medium text-center border border-amber-200/60 leading-relaxed">
+                     ⚠️ Stok saat ini: <strong>{formData.stok || 0}</strong>.<br/>Gunakan menu <span className="inline-flex items-center gap-1 bg-amber-100 px-1.5 rounded-md font-semibold"><ClipboardList size={12} strokeWidth={1.5}/> Stock Opname</span> untuk mengubah stok fisik.
                    </div>
                 )}
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">HPP (Modal Kulakan)</label>
-                  <input type="number" value={formData.hpp} onChange={(e) => setFormData({...formData, hpp: e.target.value})} className="w-full mt-1 p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-emerald-500 transition-colors" />
+                  <label className="text-xs font-semibold text-emerald-800 mb-1.5 block">HPP (Modal Kulakan)</label>
+                  {/* PERBAIKAN NULL WARNING: || '' */}
+                  <input type="number" value={formData.hpp || ''} onChange={(e) => setFormData({...formData, hpp: e.target.value})} className="w-full px-4 py-3 bg-white border border-emerald-200/60 rounded-2xl text-[15px] font-bold text-emerald-900 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50 transition-all" />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Supplier / Vendor</label>
-                  <input value={formData.vendor_name} onChange={(e) => setFormData({...formData, vendor_name: e.target.value})} className="w-full mt-1 p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-emerald-500 transition-colors" />
+                  <label className="text-xs font-semibold text-emerald-800 mb-1.5 block">Nama Supplier / Vendor</label>
+                  {/* PERBAIKAN NULL WARNING: || '' */}
+                  <input value={formData.vendor_name || ''} onChange={(e) => setFormData({...formData, vendor_name: e.target.value})} className="w-full px-4 py-3 bg-white border border-emerald-200/60 rounded-2xl text-[15px] font-medium text-emerald-900 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-50 transition-all" />
                 </div>
               </div>
 
-              <button type="submit" disabled={isSaving} className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 text-white py-3.5 rounded-xl font-black mt-4 shadow-lg shadow-emerald-200 active:scale-95 transition-all flex justify-center items-center gap-2 focus:outline-none focus:ring-2 focus:ring-emerald-400" aria-label="Simpan Katalog Produk">
-                {isSaving ? <Loader2 className="animate-spin" size={20}/> : 'Simpan Katalog Produk'}
-              </button>
+              <div className="pt-2">
+                <button type="submit" disabled={isSaving} className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white py-4 rounded-2xl font-bold text-[15px] shadow-md shadow-slate-900/10 active:scale-[0.98] transition-all flex justify-center items-center gap-2 focus:outline-none focus:ring-4 focus:ring-slate-200" aria-label="Simpan Katalog Produk">
+                  {isSaving ? <Loader2 className="animate-spin" size={20} strokeWidth={1.5}/> : 'Simpan Katalog Produk'}
+                </button>
+              </div>
             </form>
 
           </div>
@@ -313,7 +335,7 @@ export default function TabProduk({ user }) {
           ========================================= */}
       {isStockModalOpen && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fade-in"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in"
           tabIndex={-1}
           aria-modal="true"
           role="dialog"
@@ -322,17 +344,19 @@ export default function TabProduk({ user }) {
           <div
             ref={stockModalRef}
             tabIndex={0}
-            className="bg-white w-full max-w-md rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border-2 border-amber-400 outline-none"
+            className="bg-white w-full max-w-md rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-amber-200 outline-none"
           >
-            <div className="p-5 border-b bg-amber-50 border-amber-100 flex justify-between items-center">
-              <h2 className="font-black text-amber-800 flex items-center gap-2"><ClipboardList size={20} className="text-amber-600"/> Form Stock Opname</h2>
-              <button onClick={() => setIsStockModalOpen(false)} className="p-1 hover:bg-white rounded-full text-amber-600 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400" aria-label="Tutup modal"><X size={20} /></button>
+            <div className="px-6 py-5 border-b bg-amber-50 border-amber-100 flex justify-between items-center">
+              <h2 className="font-extrabold text-amber-900 text-lg tracking-tight flex items-center gap-2">
+                <ClipboardList size={20} strokeWidth={1.5} className="text-amber-600"/> Form Stock Opname
+              </h2>
+              <button onClick={() => setIsStockModalOpen(false)} className="p-2 hover:bg-amber-100 rounded-full text-amber-700 transition-colors focus:outline-none"><X size={20} strokeWidth={1.5}/></button>
             </div>
 
-            <form onSubmit={handleSaveStock} className="p-5 space-y-4">
+            <form onSubmit={handleSaveStock} className="p-6 space-y-5 bg-white">
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pilih Produk</label>
-                <select required value={stockForm.product_id} onChange={(e) => setStockForm({...stockForm, product_id: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-amber-500">
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Pilih Produk</label>
+                <select required value={stockForm.product_id} onChange={(e) => setStockForm({...stockForm, product_id: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-medium text-slate-900 outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-50 transition-all appearance-none">
                   <option value="" disabled>-- Pilih Barang --</option>
                   {productsList.map(prod => (
                     <option key={prod.id} value={prod.id}>{prod.nama_item} (Sisa Stok: {prod.stok})</option>
@@ -342,28 +366,30 @@ export default function TabProduk({ user }) {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Jenis Mutasi</label>
-                  <select required value={stockForm.jenis_mutasi} onChange={(e) => setStockForm({...stockForm, jenis_mutasi: e.target.value})} className={`w-full mt-1 p-3 rounded-xl text-sm font-black outline-none border ${stockForm.jenis_mutasi === 'Masuk' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : stockForm.jenis_mutasi === 'Keluar' ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Jenis Mutasi</label>
+                  <select required value={stockForm.jenis_mutasi} onChange={(e) => setStockForm({...stockForm, jenis_mutasi: e.target.value})} className={`w-full px-4 py-3 rounded-2xl text-[15px] font-bold outline-none border transition-all appearance-none ${stockForm.jenis_mutasi === 'Masuk' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : stockForm.jenis_mutasi === 'Keluar' ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
                     <option value="Masuk">Masuk (+)</option>
                     <option value="Keluar">Keluar (-)</option>
                     <option value="Penyesuaian">Penyesuaian (=)</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Jumlah (Qty)</label>
-                  <input type="number" min="0" required value={stockForm.qty} onChange={(e) => setStockForm({...stockForm, qty: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-amber-500" placeholder="0" />
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Jumlah (Qty)</label>
+                  <input type="number" min="0" required value={stockForm.qty} onChange={(e) => setStockForm({...stockForm, qty: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-bold text-slate-900 outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-50 transition-all" placeholder="0" />
                 </div>
               </div>
 
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Keterangan / Alasan</label>
-                <textarea required value={stockForm.keterangan} onChange={(e) => setStockForm({...stockForm, keterangan: e.target.value})} rows="2" className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none focus:border-amber-500" placeholder="Misal: Kulakan dari supplier A / Barang rusak..."></textarea>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Keterangan / Alasan</label>
+                <textarea required value={stockForm.keterangan} onChange={(e) => setStockForm({...stockForm, keterangan: e.target.value})} rows="2" className="w-full px-4 py-3 bg-white border border-slate-200/80 rounded-2xl text-[15px] font-medium text-slate-900 outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-50 transition-all resize-none" placeholder="Misal: Kulakan dari supplier A..."></textarea>
               </div>
 
-              <button type="submit" disabled={isStockSubmitting} className="w-full bg-amber-500 hover:bg-amber-600 text-white py-4 rounded-xl font-black shadow-lg shadow-amber-200 mt-4 active:scale-95 transition-all flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-amber-400" aria-label="Proses Mutasi Stok">
-                {isStockSubmitting ? <Loader2 className="animate-spin" size={20}/> : <ArrowRightLeft size={18} />} 
-                {isStockSubmitting ? 'Memproses...' : 'Proses Mutasi Stok'}
-              </button>
+              <div className="pt-2">
+                <button type="submit" disabled={isStockSubmitting} className="w-full bg-amber-500 hover:bg-amber-600 text-white py-4 rounded-2xl font-bold text-[15px] shadow-md shadow-amber-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2 focus:outline-none focus:ring-4 focus:ring-amber-100" aria-label="Proses Mutasi Stok">
+                  {isStockSubmitting ? <Loader2 className="animate-spin" size={20} strokeWidth={1.5}/> : <ArrowRightLeft size={18} strokeWidth={1.5}/>} 
+                  {isStockSubmitting ? 'Memproses...' : 'Proses Mutasi Stok'}
+                </button>
+              </div>
             </form>
 
           </div>
