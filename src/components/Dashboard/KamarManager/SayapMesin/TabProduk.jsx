@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Package, Plus, Box, ClipboardList, ToggleRight, ToggleLeft, X, ArrowRightLeft, Loader2 } from 'lucide-react';
 import { supabase } from '../../../../supabaseClient';
 
@@ -14,11 +14,38 @@ export default function TabProduk({ user }) {
     id: null, nama_item: '', tipe: 'Product', kategori: 'Grooming', 
     harga_jual: 0, hpp: 0, vendor_name: '', stok: 0, is_active: true 
   });
+  const modalRef = useRef(null);
 
   // === STATE MODAL STOCK OPNAME ===
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [isStockSubmitting, setIsStockSubmitting] = useState(false);
   const [stockForm, setStockForm] = useState({ product_id: '', jenis_mutasi: 'Masuk', qty: '', keterangan: '' });
+  const stockModalRef = useRef(null);
+
+  // Lock scroll & ESC & auto-focus untuk semua modal
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'Escape') {
+        if (isModalOpen) setIsModalOpen(false);
+        if (isStockModalOpen) setIsStockModalOpen(false);
+      }
+    };
+    if (isModalOpen || isStockModalOpen) {
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKey);
+      setTimeout(() => {
+        if (isModalOpen && modalRef.current) modalRef.current.focus();
+        if (isStockModalOpen && stockModalRef.current) stockModalRef.current.focus();
+      }, 10);
+    } else {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKey);
+    }
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKey);
+    };
+  }, [isModalOpen, isStockModalOpen]);
 
   // ==========================================
   // FUNGSI TARIK DATA (KHUSUS PRODUK)
@@ -137,7 +164,7 @@ export default function TabProduk({ user }) {
   }, {});
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-in fade-in duration-300 min-h-[100dvh]">
       
       {/* HEADER TAB */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-200 pb-4 gap-4">
@@ -215,15 +242,24 @@ export default function TabProduk({ user }) {
           MODAL FORM PRODUK BARU/EDIT
           ========================================= */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
+          tabIndex={-1}
+          aria-modal="true"
+          role="dialog"
+          onClick={e => { if (e.target === e.currentTarget) setIsModalOpen(false); }}
+        >
+          <div
+            ref={modalRef}
+            tabIndex={0}
+            className="bg-white w-full max-w-md rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 outline-none"
+          >
             <div className="p-5 border-b flex justify-between items-center bg-emerald-50 border-emerald-100">
               <h2 className="font-black text-emerald-900 flex items-center gap-2">
                  <Package size={20} className="text-emerald-600"/> 
                  {mode === 'add' ? `Tambah Produk Baru` : `Edit Produk`}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="p-1 hover:bg-white rounded-full text-emerald-600 transition-colors"><X size={20} /></button>
+              <button onClick={() => setIsModalOpen(false)} className="p-1 hover:bg-white rounded-full text-emerald-600 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-400" aria-label="Tutup modal"><X size={20} /></button>
             </div>
 
             <form onSubmit={handleSaveProduct} className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
@@ -263,7 +299,7 @@ export default function TabProduk({ user }) {
                 </div>
               </div>
 
-              <button type="submit" disabled={isSaving} className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 text-white py-3.5 rounded-xl font-black mt-4 shadow-lg shadow-emerald-200 active:scale-95 transition-all flex justify-center items-center gap-2">
+              <button type="submit" disabled={isSaving} className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 text-white py-3.5 rounded-xl font-black mt-4 shadow-lg shadow-emerald-200 active:scale-95 transition-all flex justify-center items-center gap-2 focus:outline-none focus:ring-2 focus:ring-emerald-400" aria-label="Simpan Katalog Produk">
                 {isSaving ? <Loader2 className="animate-spin" size={20}/> : 'Simpan Katalog Produk'}
               </button>
             </form>
@@ -276,12 +312,21 @@ export default function TabProduk({ user }) {
           MODAL STOCK OPNAME
           ========================================= */}
       {isStockModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border-2 border-amber-400">
-            
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fade-in"
+          tabIndex={-1}
+          aria-modal="true"
+          role="dialog"
+          onClick={e => { if (e.target === e.currentTarget) setIsStockModalOpen(false); }}
+        >
+          <div
+            ref={stockModalRef}
+            tabIndex={0}
+            className="bg-white w-full max-w-md rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border-2 border-amber-400 outline-none"
+          >
             <div className="p-5 border-b bg-amber-50 border-amber-100 flex justify-between items-center">
               <h2 className="font-black text-amber-800 flex items-center gap-2"><ClipboardList size={20} className="text-amber-600"/> Form Stock Opname</h2>
-              <button onClick={() => setIsStockModalOpen(false)} className="p-1 hover:bg-white rounded-full text-amber-600 transition-colors"><X size={20} /></button>
+              <button onClick={() => setIsStockModalOpen(false)} className="p-1 hover:bg-white rounded-full text-amber-600 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400" aria-label="Tutup modal"><X size={20} /></button>
             </div>
 
             <form onSubmit={handleSaveStock} className="p-5 space-y-4">
@@ -315,7 +360,7 @@ export default function TabProduk({ user }) {
                 <textarea required value={stockForm.keterangan} onChange={(e) => setStockForm({...stockForm, keterangan: e.target.value})} rows="2" className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none focus:border-amber-500" placeholder="Misal: Kulakan dari supplier A / Barang rusak..."></textarea>
               </div>
 
-              <button type="submit" disabled={isStockSubmitting} className="w-full bg-amber-500 hover:bg-amber-600 text-white py-4 rounded-xl font-black shadow-lg shadow-amber-200 mt-4 active:scale-95 transition-all flex items-center justify-center gap-2">
+              <button type="submit" disabled={isStockSubmitting} className="w-full bg-amber-500 hover:bg-amber-600 text-white py-4 rounded-xl font-black shadow-lg shadow-amber-200 mt-4 active:scale-95 transition-all flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-amber-400" aria-label="Proses Mutasi Stok">
                 {isStockSubmitting ? <Loader2 className="animate-spin" size={20}/> : <ArrowRightLeft size={18} />} 
                 {isStockSubmitting ? 'Memproses...' : 'Proses Mutasi Stok'}
               </button>

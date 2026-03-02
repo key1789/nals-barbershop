@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Wallet, Users, Radar, Settings, Menu, X, LogOut } from 'lucide-react';
 
 // Nanti file-file ini dibikin beneran, sekarang pake dummy text dulu di bawah
@@ -39,15 +39,28 @@ export default function KamarManagerLayout({ user, onLogout }) {
     }
   };
 
+  // Lock scroll saat mobile menu terbuka
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobileMenuOpen]);
+
   return (
-    <div className="min-h-screen bg-gray-50 md:flex">
+    <div className="min-h-[100dvh] bg-gray-50 md:flex">
       
       {/* 📱 HEADER MOBILE */}
       <div className="bg-slate-900 text-white p-4 flex items-center justify-between md:hidden shadow-md">
         <div className="flex items-center gap-3">
           <button 
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-1 hover:bg-slate-800 rounded-lg transition-colors"
+            className="p-1 hover:bg-slate-800 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
+            aria-label={isMobileMenuOpen ? 'Tutup menu' : 'Buka menu'}
           >
             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -76,11 +89,13 @@ export default function KamarManagerLayout({ user, onLogout }) {
                   setActiveTab(item.id);
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${
                   activeTab === item.id
-                    ? 'bg-blue-600 text-white font-semibold shadow-lg'
+                    ? 'bg-blue-600 text-white font-semibold shadow-lg border-l-4 border-blue-300 md:border-l-0 md:border-b-4'
                     : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                 }`}
+                aria-current={activeTab === item.id ? 'page' : undefined}
+                aria-label={item.name}
               >
                 {item.icon}
                 {item.name}
@@ -90,10 +105,11 @@ export default function KamarManagerLayout({ user, onLogout }) {
         </ul>
 
         {/* Tombol Logout di Bawah Sidebar */}
-        <div className="p-4 border-t border-slate-800">
+        <div className="p-4 border-t border-slate-800 sticky bottom-0 bg-slate-900 z-10">
            <button 
              onClick={onLogout}
-             className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition-colors"
+             className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-rose-400"
+             aria-label="Logout"
            >
              <LogOut size={18} /> Logout
            </button>
@@ -103,13 +119,14 @@ export default function KamarManagerLayout({ user, onLogout }) {
       {/* ⬛ OVERLAY GELAP DI HP */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/50 z-40 md:hidden animate-fade-in"
           onClick={() => setIsMobileMenuOpen(false)}
+          aria-label="Tutup menu overlay"
         />
       )}
 
       {/* ⬜ AREA KONTEN TENGAH */}
-      <div className="flex-1 overflow-y-auto h-screen">
+      <div className="flex-1 overflow-y-auto h-[100dvh] pb-8 md:pb-0">
         {renderContent()}
       </div>
 

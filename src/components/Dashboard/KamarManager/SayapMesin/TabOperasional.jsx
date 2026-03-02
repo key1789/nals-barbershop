@@ -1,34 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Clock, Plus, ClipboardList, ClipboardCheck, Users, Layers, Map, Trash2, X } from 'lucide-react';
 import { supabase } from '../../../../supabaseClient';
 
 export default function TabOperasional({ user }) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [outletList, setOutletList] = useState([]);
-  
-  // Lists
-  const [shiftList, setShiftList] = useState([]);
-  const [dailyDutyList, setDailyDutyList] = useState([]);
-  const [housekeepingList, setHousekeepingList] = useState([]);
+   const [isLoading, setIsLoading] = useState(false);
+   const [outletList, setOutletList] = useState([]);
+   // Lists
+   const [shiftList, setShiftList] = useState([]);
+   const [dailyDutyList, setDailyDutyList] = useState([]);
+   const [housekeepingList, setHousekeepingList] = useState([]);
+   // Modals & Forms
+   const [isModalShiftOpen, setIsModalShiftOpen] = useState(false);
+   const [shiftMode, setShiftMode] = useState('add');
+   const [shiftForm, setShiftForm] = useState({ 
+      id: null, outlet_id: '', nama_shift: 'Pagi', jam_mulai: '09:00', jam_selesai: '15:00', is_active: true 
+   });
+   const [isSavingShift, setIsSavingShift] = useState(false);
+   const shiftModalRef = useRef(null);
 
-  // Modals & Forms
-  const [isModalShiftOpen, setIsModalShiftOpen] = useState(false);
-  const [shiftMode, setShiftMode] = useState('add');
-  const [shiftForm, setShiftForm] = useState({ 
-    id: null, outlet_id: '', nama_shift: 'Pagi', jam_mulai: '09:00', jam_selesai: '15:00', is_active: true 
-  });
+   const [isModalDailyOpen, setIsModalDailyOpen] = useState(false);
+   const [dailyMode, setDailyMode] = useState('add');
+   const [dailyForm, setDailyForm] = useState({ 
+      id: null, outlet_id: '', role: 'FO', phase: 'Opening', fase_kategori: '', urutan: '', aktivitas: '', tipe: 'Checklist', catatan: '', is_active: true 
+   });
+   const [isSavingDaily, setIsSavingDaily] = useState(false);
+   const dailyModalRef = useRef(null);
 
-  const [isModalDailyOpen, setIsModalDailyOpen] = useState(false);
-  const [dailyMode, setDailyMode] = useState('add');
-  const [dailyForm, setDailyForm] = useState({ 
-    id: null, outlet_id: '', role: 'FO', phase: 'Opening', fase_kategori: '', urutan: '', aktivitas: '', tipe: 'Checklist', catatan: '', is_active: true 
-  });
-
-  const [isModalHkOpen, setIsModalHkOpen] = useState(false);
-  const [hkMode, setHkMode] = useState('add');
-  const [hkForm, setHkForm] = useState({ 
-    id: null, outlet_id: '', area: '', zona: '', phase: '', no_urut: '', rincian_jobdesk: '', wajib_foto: true, is_active: true 
-  });
+   const [isModalHkOpen, setIsModalHkOpen] = useState(false);
+   const [hkMode, setHkMode] = useState('add');
+   const [hkForm, setHkForm] = useState({ 
+      id: null, outlet_id: '', area: '', zona: '', phase: '', no_urut: '', rincian_jobdesk: '', wajib_foto: true, is_active: true 
+   });
+   const [isSavingHk, setIsSavingHk] = useState(false);
+   const hkModalRef = useRef(null);
 
   // ==========================================
   // FUNGSI TARIK DATA
@@ -59,47 +63,79 @@ export default function TabOperasional({ user }) {
   // ==========================================
   // HANDLERS
   // ==========================================
-  const handleSaveShift = async (e) => {
-    e.preventDefault(); 
-    if (!shiftForm.outlet_id) return alert("Pilih cabang dulu!");
-    try {
-      const payload = { ...shiftForm }; 
-      if (shiftMode === 'add') { 
-        delete payload.id; await supabase.from('shifts').insert([payload]); 
-      } else { 
-        await supabase.from('shifts').update(payload).eq('id', shiftForm.id); 
-      }
-      setIsModalShiftOpen(false); fetchData();
-    } catch (error) { alert("Gagal simpan shift: " + error.message); }
-  };
+   const handleSaveShift = async (e) => {
+      e.preventDefault(); 
+      if (!shiftForm.outlet_id) return alert("Pilih cabang dulu!");
+      setIsSavingShift(true);
+      try {
+         const payload = { ...shiftForm }; 
+         if (shiftMode === 'add') { 
+            delete payload.id; await supabase.from('shifts').insert([payload]); 
+         } else { 
+            await supabase.from('shifts').update(payload).eq('id', shiftForm.id); 
+         }
+         setIsModalShiftOpen(false); fetchData();
+      } catch (error) { alert("Gagal simpan shift: " + error.message); }
+      finally { setIsSavingShift(false); }
+   };
 
-  const handleSaveDailyDuty = async (e) => {
-    e.preventDefault(); 
-    if (!dailyForm.outlet_id) return alert("Pilih cabang dulu!");
-    try {
-      const payload = { ...dailyForm }; 
-      if (dailyMode === 'add') { 
-        delete payload.id; await supabase.from('daily_duty_sops').insert([payload]); 
-      } else { 
-        await supabase.from('daily_duty_sops').update(payload).eq('id', dailyForm.id); 
-      }
-      setIsModalDailyOpen(false); fetchData();
-    } catch (error) { alert("Gagal simpan Daily Duty: " + error.message); }
-  };
+   const handleSaveDailyDuty = async (e) => {
+      e.preventDefault(); 
+      if (!dailyForm.outlet_id) return alert("Pilih cabang dulu!");
+      setIsSavingDaily(true);
+      try {
+         const payload = { ...dailyForm }; 
+         if (dailyMode === 'add') { 
+            delete payload.id; await supabase.from('daily_duty_sops').insert([payload]); 
+         } else { 
+            await supabase.from('daily_duty_sops').update(payload).eq('id', dailyForm.id); 
+         }
+         setIsModalDailyOpen(false); fetchData();
+      } catch (error) { alert("Gagal simpan Daily Duty: " + error.message); }
+      finally { setIsSavingDaily(false); }
+   };
 
-  const handleSaveHousekeeping = async (e) => {
-    e.preventDefault(); 
-    if (!hkForm.outlet_id) return alert("Pilih cabang dulu!");
-    try {
-      const payload = { ...hkForm }; 
-      if (hkMode === 'add') { 
-        delete payload.id; await supabase.from('housekeeping_sops').insert([payload]); 
-      } else { 
-        await supabase.from('housekeeping_sops').update(payload).eq('id', hkForm.id); 
+   const handleSaveHousekeeping = async (e) => {
+      e.preventDefault(); 
+      if (!hkForm.outlet_id) return alert("Pilih cabang dulu!");
+      setIsSavingHk(true);
+      try {
+         const payload = { ...hkForm }; 
+         if (hkMode === 'add') { 
+            delete payload.id; await supabase.from('housekeeping_sops').insert([payload]); 
+         } else { 
+            await supabase.from('housekeeping_sops').update(payload).eq('id', hkForm.id); 
+         }
+         setIsModalHkOpen(false); fetchData();
+      } catch (error) { alert("Gagal simpan Housekeeping: " + error.message); }
+      finally { setIsSavingHk(false); }
+   };
+   // Lock scroll & ESC & auto-focus untuk semua modal
+   useEffect(() => {
+      const handleKey = (e) => {
+         if (e.key === 'Escape') {
+            if (isModalShiftOpen) setIsModalShiftOpen(false);
+            if (isModalDailyOpen) setIsModalDailyOpen(false);
+            if (isModalHkOpen) setIsModalHkOpen(false);
+         }
+      };
+      if (isModalShiftOpen || isModalDailyOpen || isModalHkOpen) {
+         document.body.style.overflow = 'hidden';
+         window.addEventListener('keydown', handleKey);
+         setTimeout(() => {
+            if (isModalShiftOpen && shiftModalRef.current) shiftModalRef.current.focus();
+            if (isModalDailyOpen && dailyModalRef.current) dailyModalRef.current.focus();
+            if (isModalHkOpen && hkModalRef.current) hkModalRef.current.focus();
+         }, 10);
+      } else {
+         document.body.style.overflow = '';
+         window.removeEventListener('keydown', handleKey);
       }
-      setIsModalHkOpen(false); fetchData();
-    } catch (error) { alert("Gagal simpan Housekeeping: " + error.message); }
-  };
+      return () => {
+         document.body.style.overflow = '';
+         window.removeEventListener('keydown', handleKey);
+      };
+   }, [isModalShiftOpen, isModalDailyOpen, isModalHkOpen]);
 
   const handleDeleteSOP = async (table, id) => {
     if(!window.confirm("Yakin hapus SOP ini permanen?")) return;
@@ -133,7 +169,7 @@ export default function TabOperasional({ user }) {
 
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+   <div className="space-y-8 animate-in fade-in duration-300 min-h-[100dvh]">
       
       {/* ZONA 1: MASTER SHIFT */}
       <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
@@ -312,14 +348,24 @@ export default function TabOperasional({ user }) {
       {/* ========================================================== */}
 
       {/* MODAL SHIFT */}
-      {isModalShiftOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-           <div className="bg-white w-full max-w-sm rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95">
-            <div className="p-5 border-b flex justify-between items-center bg-indigo-50 border-indigo-100">
-               <h2 className="font-black text-indigo-900">Master Shift</h2>
-               <button onClick={() => setIsModalShiftOpen(false)} className="text-indigo-500 hover:bg-white rounded-full p-1"><X size={20}/></button>
-            </div>
-            <form onSubmit={handleSaveShift} className="p-5 space-y-4">
+         {isModalShiftOpen && (
+            <div
+               className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
+               tabIndex={-1}
+               aria-modal="true"
+               role="dialog"
+               onClick={e => { if (e.target === e.currentTarget) setIsModalShiftOpen(false); }}
+            >
+                <div
+                   ref={shiftModalRef}
+                   tabIndex={0}
+                   className="bg-white w-full max-w-sm rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95 outline-none"
+                >
+                  <div className="p-5 border-b flex justify-between items-center bg-indigo-50 border-indigo-100">
+                      <h2 className="font-black text-indigo-900">Master Shift</h2>
+                      <button onClick={() => setIsModalShiftOpen(false)} className="text-indigo-500 hover:bg-white rounded-full p-1 focus:outline-none focus:ring-2 focus:ring-indigo-400" aria-label="Tutup modal"><X size={20}/></button>
+                  </div>
+                  <form onSubmit={handleSaveShift} className="p-5 space-y-4">
                <div>
                   <label className="text-[10px] font-black text-slate-400 uppercase">Berlaku di Cabang</label>
                   <select required value={shiftForm.outlet_id || ''} onChange={e => setShiftForm({...shiftForm, outlet_id: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-indigo-500">
@@ -342,8 +388,8 @@ export default function TabOperasional({ user }) {
                   </div>
                </div>
                <div className="flex gap-2 mt-4">
-                 {shiftMode === 'edit' && <button type="button" onClick={() => handleDeleteSOP('shifts', shiftForm.id)} className="p-3 bg-rose-100 text-rose-600 rounded-xl hover:bg-rose-200 transition-colors"><Trash2 size={20}/></button>}
-                 <button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-black shadow-lg shadow-indigo-200 active:scale-95 transition-all">Simpan Shift</button>
+                 {shiftMode === 'edit' && <button type="button" onClick={() => handleDeleteSOP('shifts', shiftForm.id)} className="p-3 bg-rose-100 text-rose-600 rounded-xl hover:bg-rose-200 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-400" aria-label="Hapus Shift"><Trash2 size={20}/></button>}
+                 <button type="submit" disabled={isSavingShift} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-black shadow-lg shadow-indigo-200 active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400 flex items-center justify-center gap-2" aria-label="Simpan Shift">{isSavingShift ? <span className="animate-spin mr-2 w-5 h-5 border-2 border-white border-t-transparent rounded-full"></span> : null}Simpan Shift</button>
                </div>
             </form>
            </div>
@@ -351,14 +397,24 @@ export default function TabOperasional({ user }) {
       )}
 
       {/* MODAL DAILY DUTY */}
-      {isModalDailyOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-           <div className="bg-white w-full max-w-md rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95">
-            <div className="p-5 border-b flex justify-between items-center bg-sky-50 border-sky-100">
-               <h2 className="font-black text-sky-900">Form Daily Duty</h2>
-               <button onClick={() => setIsModalDailyOpen(false)} className="text-sky-500 hover:bg-white rounded-full p-1"><X size={20}/></button>
-            </div>
-            <form onSubmit={handleSaveDailyDuty} className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+         {isModalDailyOpen && (
+            <div
+               className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
+               tabIndex={-1}
+               aria-modal="true"
+               role="dialog"
+               onClick={e => { if (e.target === e.currentTarget) setIsModalDailyOpen(false); }}
+            >
+                <div
+                   ref={dailyModalRef}
+                   tabIndex={0}
+                   className="bg-white w-full max-w-md rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95 outline-none"
+                >
+                  <div className="p-5 border-b flex justify-between items-center bg-sky-50 border-sky-100">
+                      <h2 className="font-black text-sky-900">Form Daily Duty</h2>
+                      <button onClick={() => setIsModalDailyOpen(false)} className="text-sky-500 hover:bg-white rounded-full p-1 focus:outline-none focus:ring-2 focus:ring-sky-400" aria-label="Tutup modal"><X size={20}/></button>
+                  </div>
+                  <form onSubmit={handleSaveDailyDuty} className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
                <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
                      <label className="text-[10px] font-black text-slate-400 uppercase">Cabang</label>
@@ -400,8 +456,8 @@ export default function TabOperasional({ user }) {
                   <textarea required rows="2" value={dailyForm.aktivitas} onChange={e => setDailyForm({...dailyForm, aktivitas: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-sky-500" placeholder="Misal: Hitung modal laci..."></textarea>
                </div>
                <div className="flex gap-2 mt-4">
-                 {dailyMode === 'edit' && <button type="button" onClick={() => handleDeleteSOP('daily_duty_sops', dailyForm.id)} className="p-3 bg-rose-100 text-rose-600 rounded-xl hover:bg-rose-200 transition-colors"><Trash2 size={20}/></button>}
-                 <button type="submit" className="flex-1 bg-sky-600 hover:bg-sky-700 text-white py-3 rounded-xl font-black shadow-lg shadow-sky-200 active:scale-95 transition-all">Simpan Daily Duty</button>
+                 {dailyMode === 'edit' && <button type="button" onClick={() => handleDeleteSOP('daily_duty_sops', dailyForm.id)} className="p-3 bg-rose-100 text-rose-600 rounded-xl hover:bg-rose-200 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-400" aria-label="Hapus Daily Duty"><Trash2 size={20}/></button>}
+                 <button type="submit" disabled={isSavingDaily} className="flex-1 bg-sky-600 hover:bg-sky-700 text-white py-3 rounded-xl font-black shadow-lg shadow-sky-200 active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-sky-400 flex items-center justify-center gap-2" aria-label="Simpan Daily Duty">{isSavingDaily ? <span className="animate-spin mr-2 w-5 h-5 border-2 border-white border-t-transparent rounded-full"></span> : null}Simpan Daily Duty</button>
                </div>
             </form>
            </div>
@@ -409,14 +465,24 @@ export default function TabOperasional({ user }) {
       )}
 
       {/* MODAL HOUSEKEEPING */}
-      {isModalHkOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-           <div className="bg-white w-full max-w-md rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95">
-            <div className="p-5 border-b flex justify-between items-center bg-emerald-50 border-emerald-100">
-               <h2 className="font-black text-emerald-900">Form Housekeeping</h2>
-               <button onClick={() => setIsModalHkOpen(false)} className="text-emerald-500 hover:bg-white rounded-full p-1"><X size={20}/></button>
-            </div>
-            <form onSubmit={handleSaveHousekeeping} className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+         {isModalHkOpen && (
+            <div
+               className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
+               tabIndex={-1}
+               aria-modal="true"
+               role="dialog"
+               onClick={e => { if (e.target === e.currentTarget) setIsModalHkOpen(false); }}
+            >
+                <div
+                   ref={hkModalRef}
+                   tabIndex={0}
+                   className="bg-white w-full max-w-md rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95 outline-none"
+                >
+                  <div className="p-5 border-b flex justify-between items-center bg-emerald-50 border-emerald-100">
+                      <h2 className="font-black text-emerald-900">Form Housekeeping</h2>
+                      <button onClick={() => setIsModalHkOpen(false)} className="text-emerald-500 hover:bg-white rounded-full p-1 focus:outline-none focus:ring-2 focus:ring-emerald-400" aria-label="Tutup modal"><X size={20}/></button>
+                  </div>
+                  <form onSubmit={handleSaveHousekeeping} className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
                <div>
                   <label className="text-[10px] font-black text-slate-400 uppercase">Cabang</label>
                   <select required value={hkForm.outlet_id || ''} onChange={e => setHkForm({...hkForm, outlet_id: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-emerald-500">
@@ -465,8 +531,8 @@ export default function TabOperasional({ user }) {
                </label>
 
                <div className="flex gap-2 mt-4">
-                 {hkMode === 'edit' && <button type="button" onClick={() => handleDeleteSOP('housekeeping_sops', hkForm.id)} className="p-3 bg-rose-100 text-rose-600 rounded-xl hover:bg-rose-200 transition-colors"><Trash2 size={20}/></button>}
-                 <button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-black shadow-lg shadow-emerald-200 active:scale-95 transition-all">Simpan Housekeeping</button>
+                 {hkMode === 'edit' && <button type="button" onClick={() => handleDeleteSOP('housekeeping_sops', hkForm.id)} className="p-3 bg-rose-100 text-rose-600 rounded-xl hover:bg-rose-200 transition-colors focus:outline-none focus:ring-2 focus:ring-rose-400" aria-label="Hapus Housekeeping"><Trash2 size={20}/></button>}
+                 <button type="submit" disabled={isSavingHk} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-black shadow-lg shadow-emerald-200 active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 flex items-center justify-center gap-2" aria-label="Simpan Housekeeping">{isSavingHk ? <span className="animate-spin mr-2 w-5 h-5 border-2 border-white border-t-transparent rounded-full"></span> : null}Simpan Housekeeping</button>
                </div>
             </form>
            </div>

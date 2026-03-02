@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Building2, Plus, Store, MapPin, Map, ToggleRight, ToggleLeft, KeyRound, Dices, Smartphone, ShieldAlert, Trash2, X } from 'lucide-react';
 import { supabase } from '../../../../supabaseClient';
 
@@ -10,6 +10,8 @@ export default function TabInfrastruktur({ user }) {
 
   // === STATE MODAL CABANG ===
   const [isModalOutletOpen, setIsModalOutletOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const modalRef = useRef(null);
   const [outletMode, setOutletMode] = useState('add');
   const [outletForm, setOutletForm] = useState({ 
     id: null, nama_outlet: '', alamat: '', latitude: '', longitude: '', radius_absen: 50, is_active: true 
@@ -47,6 +49,7 @@ export default function TabInfrastruktur({ user }) {
   // ==========================================
   const handleSaveOutlet = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
     try {
       const payload = { 
         nama_outlet: outletForm.nama_outlet, 
@@ -62,12 +65,13 @@ export default function TabInfrastruktur({ user }) {
       } else { 
         await supabase.from('outlets').update(payload).eq('id', outletForm.id); 
       }
-      
       setIsModalOutletOpen(false);
       fetchData();
       alert(`Cabang ${outletForm.nama_outlet} berhasil disimpan!`);
     } catch (error) { 
       alert("Gagal nyimpen cabang: " + error.message); 
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -105,8 +109,37 @@ export default function TabInfrastruktur({ user }) {
     }
   };
 
+  // Lock scroll saat modal terbuka
+  useEffect(() => {
+    if (isModalOutletOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isModalOutletOpen]);
+
+  // ESC untuk tutup modal
+  useEffect(() => {
+    if (!isModalOutletOpen) return;
+    const handleKey = (e) => {
+      if (e.key === 'Escape') setIsModalOutletOpen(false);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isModalOutletOpen]);
+
+  // Fokus ke modal saat buka
+  useEffect(() => {
+    if (isModalOutletOpen && modalRef.current) {
+      modalRef.current.focus();
+    }
+  }, [isModalOutletOpen]);
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-8 animate-in fade-in duration-300 min-h-[100dvh]">
       
       {/* ZONA 1: MANAJEMEN CABANG */}
       <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
@@ -227,59 +260,115 @@ export default function TabInfrastruktur({ user }) {
           MODAL OUTLET / CABANG BARU (+ GEOTAG)
           ========================================= */}
       {isModalOutletOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fade-in"
+          tabIndex={-1}
+          aria-modal="true"
+          role="dialog"
+          onClick={e => {
+            if (e.target === e.currentTarget) setIsModalOutletOpen(false);
+          }}
+        >
+          <div
+            ref={modalRef}
+            className="bg-white w-full max-w-md rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 outline-none"
+            tabIndex={0}
+          >
             <div className="p-5 border-b bg-indigo-50 border-indigo-100 flex justify-between items-center">
               <h2 className="font-black text-indigo-800 flex items-center gap-2">
-                <Building2 size={20} className="text-indigo-600"/> 
+                <Building2 size={20} className="text-indigo-600"/>
                 {outletMode === 'add' ? 'Buka Cabang Baru' : 'Edit Info Cabang'}
               </h2>
-              <button onClick={() => setIsModalOutletOpen(false)} className="p-1 hover:bg-white rounded-full text-indigo-600 transition-colors"><X size={20} /></button>
+              <button
+                onClick={() => setIsModalOutletOpen(false)}
+                className="p-1 hover:bg-white rounded-full text-indigo-600 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                aria-label="Tutup modal"
+              >
+                <X size={20} />
+              </button>
             </div>
-            
             <form onSubmit={handleSaveOutlet} className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
-              
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Cabang / Ruko</label>
-                <input required value={outletForm.nama_outlet} onChange={(e) => setOutletForm({...outletForm, nama_outlet: e.target.value})} className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 transition-colors" placeholder="Misal: Nal's Sudirman" />
+                <input
+                  required
+                  value={outletForm.nama_outlet}
+                  onChange={(e) => setOutletForm({...outletForm, nama_outlet: e.target.value})}
+                  className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-300 transition-colors"
+                  placeholder="Misal: Nal's Sudirman"
+                  aria-label="Nama Cabang"
+                />
               </div>
-              
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Alamat Lengkap</label>
-                <textarea required value={outletForm.alamat || ''} onChange={(e) => setOutletForm({...outletForm, alamat: e.target.value})} rows="2" className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 transition-colors" placeholder="Jl. Sudirman No 12..."></textarea>
+                <textarea
+                  required
+                  value={outletForm.alamat || ''}
+                  onChange={(e) => setOutletForm({...outletForm, alamat: e.target.value})}
+                  rows="2"
+                  className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-300 transition-colors"
+                  placeholder="Jl. Sudirman No 12..."
+                  aria-label="Alamat Lengkap"
+                ></textarea>
               </div>
-
               {/* DATA GEOTAG ABSENSI */}
               <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl space-y-4">
-                 <div className="flex items-center gap-2 mb-1">
-                    <Map size={16} className="text-emerald-500"/>
-                    <h3 className="text-xs font-black text-emerald-800 uppercase tracking-widest">Koordinat Geotag Absensi</h3>
-                 </div>
-                 <p className="text-[10px] font-bold text-emerald-600/70 leading-tight">Copy dari Google Maps. Digunakan untuk validasi absen karyawan radius ruko.</p>
-                 
-                 <div className="grid grid-cols-2 gap-4">
-                    <div>
-                       <label className="text-[10px] font-black text-emerald-700 uppercase tracking-widest ml-1">Latitude</label>
-                       <input type="number" step="any" value={outletForm.latitude} onChange={(e) => setOutletForm({...outletForm, latitude: e.target.value})} className="w-full mt-1 p-3 bg-white border border-emerald-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-emerald-500 transition-colors" placeholder="-6.20000" />
-                    </div>
-                    <div>
-                       <label className="text-[10px] font-black text-emerald-700 uppercase tracking-widest ml-1">Longitude</label>
-                       <input type="number" step="any" value={outletForm.longitude} onChange={(e) => setOutletForm({...outletForm, longitude: e.target.value})} className="w-full mt-1 p-3 bg-white border border-emerald-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-emerald-500 transition-colors" placeholder="106.816666" />
-                    </div>
-                 </div>
-                 
-                 <div>
-                    <label className="text-[10px] font-black text-emerald-700 uppercase tracking-widest ml-1">Radius Toleransi (Meter)</label>
-                    <input type="number" min="10" value={outletForm.radius_absen} onChange={(e) => setOutletForm({...outletForm, radius_absen: e.target.value})} className="w-full mt-1 p-3 bg-white border border-emerald-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-emerald-500 transition-colors" placeholder="50" />
-                 </div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Map size={16} className="text-emerald-500"/>
+                  <h3 className="text-xs font-black text-emerald-800 uppercase tracking-widest">Koordinat Geotag Absensi</h3>
+                </div>
+                <p className="text-[10px] font-bold text-emerald-600/70 leading-tight">Copy dari Google Maps. Digunakan untuk validasi absen karyawan radius ruko.</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black text-emerald-700 uppercase tracking-widest ml-1">Latitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={outletForm.latitude}
+                      onChange={(e) => setOutletForm({...outletForm, latitude: e.target.value})}
+                      className="w-full mt-1 p-3 bg-white border border-emerald-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 transition-colors"
+                      placeholder="-6.20000"
+                      aria-label="Latitude"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-emerald-700 uppercase tracking-widest ml-1">Longitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={outletForm.longitude}
+                      onChange={(e) => setOutletForm({...outletForm, longitude: e.target.value})}
+                      className="w-full mt-1 p-3 bg-white border border-emerald-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 transition-colors"
+                      placeholder="106.816666"
+                      aria-label="Longitude"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-emerald-700 uppercase tracking-widest ml-1">Radius Toleransi (Meter)</label>
+                  <input
+                    type="number"
+                    min="10"
+                    value={outletForm.radius_absen}
+                    onChange={(e) => setOutletForm({...outletForm, radius_absen: e.target.value})}
+                    className="w-full mt-1 p-3 bg-white border border-emerald-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 transition-colors"
+                    placeholder="50"
+                    aria-label="Radius Toleransi"
+                  />
+                </div>
               </div>
-
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-black shadow-lg shadow-indigo-200 mt-4 active:scale-95 transition-all">
+              <button
+                type="submit"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-black shadow-lg shadow-indigo-200 mt-4 active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400 flex items-center justify-center gap-2"
+                aria-label={outletMode === 'add' ? 'Resmikan Cabang' : 'Simpan Perubahan'}
+                disabled={isSubmitting}
+              >
+                {isSubmitting && (
+                  <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                )}
                 {outletMode === 'add' ? 'Resmikan Cabang' : 'Simpan Perubahan'}
               </button>
             </form>
-
           </div>
         </div>
       )}
