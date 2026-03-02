@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Users, Plus, Crown, Store, Camera, ToggleRight, ToggleLeft, X, Dices, ClipboardCheck, Loader2 } from 'lucide-react';
+import { Users, Plus, Crown, Store, Camera, ToggleRight, ToggleLeft, X, Dices, ClipboardCheck, Loader2, Award } from 'lucide-react';
 import { supabase } from '../../../../supabaseClient';
 import imageCompression from 'browser-image-compression';
 
@@ -12,15 +12,19 @@ export default function TabKaryawan({ user }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [mode, setMode] = useState('add');
   const [isUploading, setIsUploading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false); // UPDATE 1: State isSubmitting
+  const [isSubmitting, setIsSubmitting] = useState(false); 
   
   const fileInputRef = useRef(null);
-  const modalRef = useRef(null); // UPDATE 4: Ref untuk modal
+  const modalRef = useRef(null); 
 
+  // UPDATE 1: Tambah State default untuk KPI
   const [formData, setFormData] = useState({ 
     id: null, nama: '', username: '', password: '', role: 'Capster', 
     gaji_pokok: 30, outlet_id: '', photo_url: '', is_active: true, 
-    tanggal_masuk: new Date().toISOString().split('T')[0], tanggal_keluar: '', hk_area_pic: '' 
+    tanggal_masuk: new Date().toISOString().split('T')[0], tanggal_keluar: '', hk_area_pic: '',
+    target_kepala_bulanan: 200, 
+    toleransi_durasi_layanan_menit: 15, 
+    toleransi_telat_absen_menit: 10 
   });
 
   // ==========================================
@@ -44,7 +48,6 @@ export default function TabKaryawan({ user }) {
 
   useEffect(() => { fetchData(); }, []);
 
-  // UPDATE 2, 3 & 4: Lock scroll body, ESC handler, dan modal auto-focus
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') setIsModalOpen(false);
@@ -53,14 +56,12 @@ export default function TabKaryawan({ user }) {
     if (isModalOpen) {
       document.body.style.overflow = 'hidden';
       window.addEventListener('keydown', handleKeyDown);
-      // Auto-focus ke modal untuk aksesibilitas saat terbuka
       setTimeout(() => modalRef.current?.focus(), 10);
     } else {
       document.body.style.overflow = '';
       window.removeEventListener('keydown', handleKeyDown);
     }
 
-    // Cleanup saat unmount atau dependency berubah
     return () => {
       document.body.style.overflow = '';
       window.removeEventListener('keydown', handleKeyDown);
@@ -104,9 +105,10 @@ export default function TabKaryawan({ user }) {
       return alert("Pilih cabang dulu untuk posisi ini!");
     }
     
-    setIsSubmitting(true); // UPDATE 1: Mulai loading submit
+    setIsSubmitting(true); 
     
     try {
+      // UPDATE 2: Payload memastikan angka parameter KPI terkonversi dengan aman
       const payload = {
         nama: formData.nama,
         username: formData.username,
@@ -119,6 +121,9 @@ export default function TabKaryawan({ user }) {
         photo_url: formData.photo_url === '' ? null : formData.photo_url,
         tanggal_keluar: formData.tanggal_keluar === '' ? null : formData.tanggal_keluar,
         hk_area_pic: formData.hk_area_pic === '' ? null : formData.hk_area_pic,
+        target_kepala_bulanan: Number(formData.target_kepala_bulanan) || 0,
+        toleransi_durasi_layanan_menit: Number(formData.toleransi_durasi_layanan_menit) || 0,
+        toleransi_telat_absen_menit: Number(formData.toleransi_telat_absen_menit) || 0,
       };
 
       if (mode === 'add') { 
@@ -132,7 +137,7 @@ export default function TabKaryawan({ user }) {
     } catch (error) { 
       alert("Gagal nyimpen karyawan: " + error.message); 
     } finally {
-      setIsSubmitting(false); // UPDATE 1: Stop loading submit
+      setIsSubmitting(false); 
     }
   };
 
@@ -149,7 +154,6 @@ export default function TabKaryawan({ user }) {
   }, {});
 
   return (
-    // UPDATE 6: Pakai min-h-[100dvh]
     <div className="space-y-6 animate-in fade-in duration-300 min-h-[100dvh]">
       
       {/* HEADER TAB */}
@@ -157,11 +161,15 @@ export default function TabKaryawan({ user }) {
         <button 
           onClick={() => { 
             setMode('add'); 
-            setFormData({ id: null, nama: '', username: '', password: '', role: 'Capster', gaji_pokok: 30, outlet_id: '', photo_url: '', is_active: true, tanggal_masuk: new Date().toISOString().split('T')[0], tanggal_keluar: '', hk_area_pic: '' }); 
+            setFormData({ 
+              id: null, nama: '', username: '', password: '', role: 'Capster', 
+              gaji_pokok: 30, outlet_id: '', photo_url: '', is_active: true, 
+              tanggal_masuk: new Date().toISOString().split('T')[0], tanggal_keluar: '', hk_area_pic: '',
+              target_kepala_bulanan: 200, toleransi_durasi_layanan_menit: 15, toleransi_telat_absen_menit: 10 
+            }); 
             setIsModalOpen(true); 
           }} 
           aria-label="Tambah Karyawan Baru"
-          // UPDATE 5: Focus ring & outline-none
           className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all flex items-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-600"
         >
           <Plus size={18} /> Tambah Karyawan
@@ -188,7 +196,6 @@ export default function TabKaryawan({ user }) {
                       tabIndex={0}
                       aria-label={`Edit Profil ${k.nama}`}
                       onKeyDown={(e) => { if(e.key === 'Enter') { setMode('edit'); setFormData(k); setIsModalOpen(true); } }}
-                      // UPDATE 5: focus ring untuk aksesibilitas tab navigasi
                       className={`bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 cursor-pointer hover:border-indigo-300 outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-100 transition-all ${!k.is_active ? 'opacity-50 grayscale' : ''}`}
                     >
                       {k.photo_url ? <img src={k.photo_url} alt={`Foto ${k.nama}`} className="w-12 h-12 rounded-full object-cover"/> : <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-black bg-amber-500">{k.nama.charAt(0)}</div>}
@@ -240,12 +247,10 @@ export default function TabKaryawan({ user }) {
           ========================================= */}
       {isModalOpen && (
         <div 
-          // UPDATE 3: Modal tutup kalau backdrop diklik
           onClick={() => setIsModalOpen(false)}
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
         >
            <div 
-             // UPDATE 3, 4 & 5: Auto-focus & Stop propagation (biar ga ikutan ketutup)
              ref={modalRef}
              tabIndex={-1}
              role="dialog"
@@ -265,7 +270,7 @@ export default function TabKaryawan({ user }) {
               </button>
             </div>
             
-            <form onSubmit={handleSave} className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+            <form onSubmit={handleSave} className="p-5 space-y-4 max-h-[75vh] overflow-y-auto no-scrollbar">
                
                {/* FOTO & NAMA & STATUS */}
                <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
@@ -329,10 +334,10 @@ export default function TabKaryawan({ user }) {
                      <option value="Capster">Capster</option>
                      <option value="FO">Front Office</option>
                      <option value="Manager">Manager</option>
+                     <option value="Owner">Owner</option>
                    </select>
                  </div>
                </div>
-
                
                {/* TANGGUNG JAWAB HK AREA - DROPDOWN VERSION */}
                <div className="p-3 border border-amber-200 bg-amber-50 rounded-xl">
@@ -355,15 +360,29 @@ export default function TabKaryawan({ user }) {
                  </p>
                </div>
 
-               {/* KREDENSIAL & GAJI */}
+               {/* KREDENSIAL, GAJI & TOLERANSI TELAT */}
                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label htmlFor="gaji-input" className="text-[10px] font-black text-slate-400 uppercase">{formData.role === 'Capster' ? 'Komisi (%)' : 'Gaji Pokok'}</label>
+                  {/* UPDATE 3: DINAMIS LABEL GAJI VS KOMISI */}
+                  <div className="col-span-1">
+                    <label htmlFor="gaji-input" className="text-[10px] font-black text-emerald-600 uppercase ml-1">
+                      {formData.role === 'Capster' ? 'Komisi (%)' : 'Gaji Pokok (Rp)'}
+                    </label>
                     <input 
                       id="gaji-input"
                       type="number" 
                       value={formData.gaji_pokok} 
                       onChange={e => setFormData({...formData, gaji_pokok: e.target.value})} 
+                      className="w-full mt-1 p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-sm font-bold outline-none focus:border-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-200 text-emerald-900"
+                    />
+                  </div>
+                  {/* UPDATE 4: TOLERANSI TELAT ABSEN (UNTUK SEMUA) */}
+                  <div className="col-span-1">
+                    <label htmlFor="telat-input" className="text-[10px] font-black text-slate-400 uppercase ml-1">Telat Absen (Mnt)</label>
+                    <input 
+                      id="telat-input"
+                      type="number" 
+                      value={formData.toleransi_telat_absen_menit} 
+                      onChange={e => setFormData({...formData, toleransi_telat_absen_menit: e.target.value})} 
                       className="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-200"
                     />
                   </div>
@@ -382,7 +401,8 @@ export default function TabKaryawan({ user }) {
                     <div className="relative mt-1">
                       <input 
                         id="password-input"
-                        required 
+                        required={mode === 'add'} 
+                        placeholder={mode === 'add' ? "" : "Kosongkan jika tetap"}
                         value={formData.password} 
                         onChange={e => setFormData({...formData, password: e.target.value})} 
                         className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold pr-10 outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-200"
@@ -399,7 +419,37 @@ export default function TabKaryawan({ user }) {
                   </div>
                </div>
 
-               {/* UPDATE 7: Feedback loading submit dan disable logic */}
+               {/* UPDATE 5: DINAMIS MUNCUL KHUSUS CAPSTER */}
+               {formData.role === 'Capster' && (
+                 <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl grid grid-cols-2 gap-4 animate-in fade-in zoom-in-95 mt-2">
+                    <div className="col-span-2">
+                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1"><Award size={14}/> Parameter KPI Capster</p>
+                    </div>
+                    <div>
+                       <label htmlFor="target-kepala-input" className="text-[9px] font-bold text-indigo-800 uppercase ml-1">Target Kepala/Bulan</label>
+                       <input 
+                         id="target-kepala-input"
+                         type="number" 
+                         value={formData.target_kepala_bulanan} 
+                         onChange={e => setFormData({...formData, target_kepala_bulanan: e.target.value})} 
+                         className="w-full mt-1 p-2.5 bg-white border border-indigo-200 rounded-xl font-bold text-sm outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-200" 
+                         placeholder="200" 
+                       />
+                    </div>
+                    <div>
+                       <label htmlFor="toleransi-cukur-input" className="text-[9px] font-bold text-indigo-800 uppercase ml-1">Toleransi Waktu Cukur</label>
+                       <input 
+                         id="toleransi-cukur-input"
+                         type="number" 
+                         value={formData.toleransi_durasi_layanan_menit} 
+                         onChange={e => setFormData({...formData, toleransi_durasi_layanan_menit: e.target.value})} 
+                         className="w-full mt-1 p-2.5 bg-white border border-indigo-200 rounded-xl font-bold text-sm outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-200" 
+                         placeholder="15 Mnt" 
+                       />
+                    </div>
+                 </div>
+               )}
+
                <button 
                  type="submit" 
                  disabled={isUploading || isSubmitting} 

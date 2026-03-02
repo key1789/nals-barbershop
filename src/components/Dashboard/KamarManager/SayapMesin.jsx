@@ -13,7 +13,7 @@ export default function SayapMesin({ user }) {
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto relative font-sans text-slate-900">
       <div className="mb-6">
-        <h1 className="text-2xl font-black text-slate-800 tracking-tight">⚙️ Ruang Mesin</h1>
+        <h1 className="text-2xl font-black text-slate-800 tracking-tight">⚙️ System Settings</h1>
       </div>
       
       {/* TABS MENU NAVIGATION */}

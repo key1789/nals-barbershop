@@ -113,9 +113,9 @@ export default function TabLayanan({ user }) {
       <div className="flex justify-between items-center border-b border-slate-200 pb-4">
          <div>
             <h2 className="font-black text-slate-800 text-lg flex items-center gap-2">
-               <Scissors className="text-sky-500"/> Katalog Jasa Cukur
+               <Scissors className="text-sky-500"/> Katalog Layanan
             </h2>
-            <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Master data layanan & harga</p>
+            <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Master data layanan</p>
          </div>
         <button 
           onClick={() => { 
