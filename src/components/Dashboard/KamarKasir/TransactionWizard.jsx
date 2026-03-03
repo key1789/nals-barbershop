@@ -108,7 +108,6 @@ const TransactionWizard = ({ user, services = [], capsters = [], onComplete }) =
     return () => clearTimeout(delay);
   }, [searchCust]);
 
-  // FIX: Hapus setIsLoadingStats yang bikin error putih
   const handleSelectCustomer = async (customer) => {
     setTrxData({ ...trxData, customer });
     try {
@@ -133,6 +132,19 @@ const TransactionWizard = ({ user, services = [], capsters = [], onComplete }) =
     if (!newMemberForm.nama || !newMemberForm.inisial_panggilan || !newMemberForm.tier) {
       return alert("Panggilan, Nama, dan Tier Wajib Diisi!");
     }
+    
+    if (newMemberForm.no_wa) {
+      const { data: existingWa } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('no_wa', newMemberForm.no_wa);
+        
+      if (existingWa && existingWa.length > 0) {
+        return alert("Gagal! Nomor WA ini sudah terdaftar di sistem. Coba cari di kolom pencarian.");
+      }
+    }
+
+    setIsRegistering(true);
     try {
         const payload = {
             ...newMemberForm,
@@ -145,13 +157,53 @@ const TransactionWizard = ({ user, services = [], capsters = [], onComplete }) =
         if (error) throw error;
         handleSelectCustomer(data);
         setIsRegistering(false);
-    } catch (err) { alert(err.message); }
+    } catch (err) { 
+        alert(err.message); 
+        setIsRegistering(false);
+    }
   };
 
   const handleSubmit = async () => {
     if (isSaving) return;
     setIsSaving(true);
     try {
+      
+      // =================================================================
+      // 🚨 SATPAM BOOKING (VALIDASI OPSI B)
+      // Cek apakah jadwal capster bentrok (Buffer waktu +/- 30 menit)
+      // =================================================================
+      if (trxType === 'booking') {
+        if (!bookingDateTime) {
+          alert("Jadwal kedatangan belum diisi! Silakan kembali ke Step Pilih Item.");
+          setIsSaving(false);
+          setTrxStep(2);
+          return;
+        }
+
+        const bookingTime = new Date(bookingDateTime).getTime();
+        // Bikin batasan waktu 30 menit sebelum dan sesudah jadwal yang dipilih
+        const limitBefore = new Date(bookingTime - 30 * 60000).toISOString(); 
+        const limitAfter = new Date(bookingTime + 30 * 60000).toISOString();  
+
+        const { data: clashData, error: clashErr } = await supabase
+          .from('visits')
+          .select('id, transaction_date')
+          .eq('capster_id', trxData.capster?.id)
+          .eq('status_layanan', 'Booking Order')
+          .gte('transaction_date', limitBefore)
+          .lte('transaction_date', limitAfter);
+
+        if (clashErr) throw clashErr;
+
+        if (clashData && clashData.length > 0) {
+           alert(`❌ WADUH BENTROK!\n\nCapster ${trxData.capster.nama} sudah dibooking orang lain di sekitar jam tersebut. Silakan pilih jam lain.`);
+           setIsSaving(false);
+           setTrxStep(2); // Lempar balik ke step pilih jam
+           return;
+        }
+      }
+      // =================================================================
+
       let nextQueueNumber = null;
       if (trxType === 'regular') {
         const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
@@ -317,6 +369,26 @@ const TransactionWizard = ({ user, services = [], capsters = [], onComplete }) =
           {trxStep === 2 && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-full animate-in slide-in-from-right-10 duration-700">
               <div className="lg:col-span-8 flex flex-col bg-white p-10 rounded-[3rem] border border-slate-200 shadow-xl overflow-hidden">
+                 
+                 {/* TOMBOL TAB KATEGORI (PRODUK / JASA) */}
+                 {trxType !== 'retail' && (
+                   <div className="flex gap-3 mb-6 animate-in fade-in">
+                     {['all', 'service', 'product'].map(type => (
+                       <button 
+                         key={type}
+                         onClick={() => setFilterType(type)}
+                         className={`px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                           filterType === type 
+                             ? 'bg-indigo-600 text-white shadow-md' 
+                             : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                         }`}
+                       >
+                         {type === 'all' ? 'Semua Item' : type === 'service' ? 'Jasa / Cukur' : 'Produk'}
+                       </button>
+                     ))}
+                   </div>
+                 )}
+
                  {trxType === 'booking' && (
                     <div className="mb-8 p-6 bg-orange-50 border-2 border-orange-200 rounded-[2rem] flex items-center gap-6 animate-in slide-in-from-top-4">
                        <div className="bg-orange-500 text-white p-4 rounded-2xl shadow-lg shadow-orange-200"><CalendarClock size={32}/></div>

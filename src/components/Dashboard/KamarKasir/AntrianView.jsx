@@ -22,11 +22,12 @@ const AntrianView = ({ user, queues = [], services = [], onRefresh }) => {
   const isSelectedWaiting = selectedData?.status_layanan === 'Waiting';
   const isSelectedDone = selectedData?.status_layanan === 'Done';
   const isSelectedOnProcess = selectedData?.status_layanan === 'On Process';
+  const isSelectedBooking = selectedData?.status_layanan === 'Booking Order';
+  const isSelectedRetail = !selectedData?.status_layanan || selectedData?.status_layanan === 'Retail';
 
   const formatIDR = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
   const getCleanType = (tipe) => (tipe || 'service').toLowerCase().trim();
 
-  // Helper: Cek apakah tanggal = hari ini
   const isToday = (dateString) => {
     if (!dateString) return false;
     const d = new Date(dateString);
@@ -35,14 +36,11 @@ const AntrianView = ({ user, queues = [], services = [], onRefresh }) => {
   };
 
   const todayBookings = safeQueues.filter(q => q.status_layanan === 'Booking Order' && isToday(q.transaction_date));
+  const retailUnpaid = safeQueues.filter(q => (!q.status_layanan || q.status_layanan === 'Retail') && q.status_transaksi === 'Unpaid');
   
-  // Grouping item keranjang (Poin 4)
   const cartServices = selectedData?.visit_items?.filter(i => getCleanType(i.products_services?.tipe) === 'service') || [];
   const cartProducts = selectedData?.visit_items?.filter(i => getCleanType(i.products_services?.tipe) === 'product') || [];
 
-  // =========================================================================
-  // LOGIKA MESIN DATABASE
-  // =========================================================================
   const recalculateTotal = async (visitId) => {
     const { data: items } = await supabase.from('visit_items').select('qty, harga_saat_ini').eq('visit_id', visitId);
     if (items) {
@@ -55,8 +53,25 @@ const AntrianView = ({ user, queues = [], services = [], onRefresh }) => {
     setIsUpdating(true);
     try {
       const isProduct = getCleanType(serviceProduct.tipe) === 'product';
-      const existingItem = selectedData.visit_items?.find(it => it.item_id === serviceProduct.id);
+      const existingItem = selectedData.visit_items?.find(it => (it.item_id || it.products_services?.id) === serviceProduct.id);
       
+      if (isProduct) {
+        const { data: dbProd } = await supabase.from('products_services').select('stok').eq('id', serviceProduct.id).single();
+        if (!dbProd || dbProd.stok <= 0) return alert("Stok barang ini sudah habis di gudang!");
+        
+        await supabase.from('products_services').update({ stok: dbProd.stok - 1 }).eq('id', serviceProduct.id);
+        
+        const payloadLog = {
+          product_id: serviceProduct.id, 
+          qty: -1,
+          jenis_mutasi: 'Sale', 
+          keterangan: `Tambah Item - Visit ID: ${selectedData.id}`
+        };
+        if (user && user.id) payloadLog.user_id = user.id;
+        
+        await supabase.from('stock_logs').insert([payloadLog]);
+      }
+
       if (existingItem) {
         await supabase.from('visit_items').update({ qty: existingItem.qty + 1 }).eq('id', existingItem.id);
       } else {
@@ -64,14 +79,6 @@ const AntrianView = ({ user, queues = [], services = [], onRefresh }) => {
           visit_id: selectedData.id, item_id: serviceProduct.id,
           qty: 1, harga_saat_ini: serviceProduct.harga_jual, harga_asli: serviceProduct.harga_jual
         }]);
-      }
-
-      if (isProduct) {
-        await supabase.from('products_services').update({ stok: serviceProduct.stok - 1 }).eq('id', serviceProduct.id);
-        await supabase.from('stock_logs').insert({
-          user_id: user.id, product_id: serviceProduct.id, qty: -1,
-          jenis_mutasi: 'Sale', keterangan: `Tambah di Antrean - Visit ID: ${selectedData.id}`
-        });
       }
 
       await recalculateTotal(selectedData.id);
@@ -89,23 +96,27 @@ const AntrianView = ({ user, queues = [], services = [], onRefresh }) => {
     setIsUpdating(true);
     try {
       const isProduct = getCleanType(it.products_services?.tipe) === 'product';
-      const masterProduct = isProduct ? services.find(s => s.id === it.item_id) : null;
+      const productId = it.item_id || it.products_services?.id;
 
-      if (isProduct && delta > 0 && masterProduct && masterProduct.stok <= 0) {
-         return alert("Stok barang ini sudah habis!");
+      if (isProduct && productId) {
+        const { data: dbProd } = await supabase.from('products_services').select('stok').eq('id', productId).single();
+        if (!dbProd) throw new Error("Produk tidak ditemukan di database.");
+        if (delta > 0 && dbProd.stok <= 0) return alert("Stok barang habis!");
+
+        await supabase.from('products_services').update({ stok: dbProd.stok - delta }).eq('id', productId);
+        
+        const payloadLog = {
+          product_id: productId, 
+          qty: -delta,
+          jenis_mutasi: delta > 0 ? 'Sale' : 'Batal/Return', 
+          keterangan: `Ubah Qty Antrean - Visit ID: ${selectedData.id}`
+        };
+        if (user && user.id) payloadLog.user_id = user.id;
+
+        await supabase.from('stock_logs').insert([payloadLog]);
       }
 
       await supabase.from('visit_items').update({ qty: newQty }).eq('id', it.id);
-
-      if (isProduct && masterProduct) {
-        await supabase.from('products_services').update({ stok: masterProduct.stok - delta }).eq('id', masterProduct.id);
-        await supabase.from('stock_logs').insert({
-          user_id: user.id, product_id: masterProduct.id, qty: -delta,
-          jenis_mutasi: delta > 0 ? 'Sale' : 'Batal/Return', 
-          keterangan: `Ubah Qty Antrean - Visit ID: ${selectedData.id}`
-        });
-      }
-
       await recalculateTotal(selectedData.id);
       onRefresh();
     } catch (err) { alert("Gagal update Qty: " + err.message); }
@@ -117,16 +128,25 @@ const AntrianView = ({ user, queues = [], services = [], onRefresh }) => {
     setIsUpdating(true);
     try {
       const isProduct = getCleanType(it.products_services?.tipe) === 'product';
-      const masterProduct = isProduct ? services.find(s => s.id === it.item_id) : null;
-
+      const productId = it.item_id || it.products_services?.id;
+      
       await supabase.from('visit_items').delete().eq('id', it.id);
 
-      if (isProduct && masterProduct) {
-        await supabase.from('products_services').update({ stok: masterProduct.stok + it.qty }).eq('id', masterProduct.id);
-        await supabase.from('stock_logs').insert({
-          user_id: user.id, product_id: masterProduct.id, qty: Math.abs(it.qty),
-          jenis_mutasi: 'Batal/Return', keterangan: `Hapus Item Antrean - Visit ID: ${selectedData.id}`
-        });
+      if (isProduct && productId) {
+        const { data: dbProd } = await supabase.from('products_services').select('stok').eq('id', productId).single();
+        if (dbProd) {
+          await supabase.from('products_services').update({ stok: dbProd.stok + it.qty }).eq('id', productId);
+          
+          const payloadLog = {
+            product_id: productId, 
+            qty: Math.abs(it.qty),
+            jenis_mutasi: 'Batal/Return', 
+            keterangan: `Hapus Item Antrean - Visit ID: ${selectedData.id}`
+          };
+          if (user && user.id) payloadLog.user_id = user.id;
+
+          await supabase.from('stock_logs').insert([payloadLog]);
+        }
       }
 
       await recalculateTotal(selectedData.id);
@@ -153,41 +173,48 @@ const AntrianView = ({ user, queues = [], services = [], onRefresh }) => {
     finally { setIsUpdating(false); }
   };
 
+  // =======================================================
+  // 🚨 LOGIKA CANCEL YG SUDAH DI-SANITASI (ANTI ERROR 400)
+  // =======================================================
   const handleCancelAntrean = async () => {
     if (!cancelModal.reason.trim()) { alert("Alasan pembatalan wajib diisi!"); return; }
     setIsUpdating(true);
     
     try {
-      // --- 🚨 1. LOGIKA BALIKIN STOK (PENYELAMATAN INVENTORI) 🚨 ---
-      // Cek apakah di nota orang ini ada produk retail (bukan jasa)
       const itemsToReturn = selectedData.visit_items?.filter(
         it => getCleanType(it.products_services?.tipe) === 'product'
       );
 
-      // Kalau ternyata ada produknya, kita balikin satu-satu
       if (itemsToReturn && itemsToReturn.length > 0) {
         for (const it of itemsToReturn) {
-          const masterProduct = services.find(s => s.id === it.item_id);
+          const productId = it.item_id || it.products_services?.id;
           
-          if (masterProduct) {
-            // A. Balikin angka stok di tabel 'products_services'
-            await supabase.from('products_services')
-              .update({ stok: masterProduct.stok + it.qty })
-              .eq('id', masterProduct.id);
+          if (productId) {
+            const { data: dbProd } = await supabase.from('products_services').select('stok').eq('id', productId).single();
+            if (dbProd) {
+              await supabase.from('products_services').update({ stok: (dbProd.stok || 0) + it.qty }).eq('id', productId);
+              
+              // CARA SANITASI: Bikin object dulu, isi yg pasti ada, baru di insert
+              const payloadLog = {
+                product_id: productId, 
+                qty: Math.abs(it.qty), 
+                jenis_mutasi: 'Batal/Return', 
+                keterangan: `Batal Transaksi [${cancelModal.type}] - Visit ID: ${selectedData.id}`
+              };
+              
+              // Cek manual kalau user ada, baru di-attach (biar gak ngirim undefined)
+              if (user && user.id) {
+                payloadLog.user_id = user.id;
+              }
 
-            // B. Catat di buku logbook gudang ('stock_logs')
-            await supabase.from('stock_logs').insert({
-              user_id: user.id, 
-              product_id: masterProduct.id, 
-              qty: Math.abs(it.qty), // Dibuat positif karena barang masuk lagi
-              jenis_mutasi: 'Batal/Return', 
-              keterangan: `Batal Antrean [${cancelModal.type}] - Visit ID: ${selectedData.id}`
-            });
+              // 🚨 FIX: Hapus kurung siku, dan tangkap kalau ada error tersembunyi
+              const { error: logErr } = await supabase.from('stock_logs').insert(payloadLog);
+              if (logErr) console.error("Gagal catat log pengembalian:", logErr.message);
+            }
           }
         }
       }
 
-      // --- 2. LANJUT BATALIN ANTREAN ---
       await supabase.from('visits').update({ 
         status_layanan: 'Cancel', 
         status_transaksi: cancelModal.type, 
@@ -205,14 +232,10 @@ const AntrianView = ({ user, queues = [], services = [], onRefresh }) => {
     }
   };
 
-  const getSaranProdukText = () => {
-    if (!selectedData || !selectedData.service_notes) return null;
-    const notes = selectedData.service_notes;
-    const text = Array.isArray(notes) ? notes[0]?.rekomendasi_produk : notes?.rekomendasi_produk;
-    return text && text.trim() !== '' ? text : null;
-  };
+  const saranProdukAsli = selectedData?.rekomendasi_produk && selectedData.rekomendasi_produk.trim() !== '' 
+      ? selectedData.rekomendasi_produk 
+      : null;
 
-  const saranProdukAsli = getSaranProdukText();
   const filteredCatalog = services.filter(item => item.nama_item?.toLowerCase().includes(catalogSearch.toLowerCase()));
 
   // KARTU ANTREAN (KANBAN)
@@ -248,7 +271,6 @@ const AntrianView = ({ user, queues = [], services = [], onRefresh }) => {
     );
   };
 
-  // KOMPONEN ITEM RENDERER (Untuk Grouping Jasa vs Produk)
   const ItemRow = ({ it, isLocked }) => (
     <div className={`p-4 rounded-2xl border-2 flex flex-col gap-3 transition-colors ${isLocked ? 'bg-slate-50 border-slate-100' : 'bg-white border-slate-100 hover:border-indigo-200'}`}>
       <div className="flex justify-between items-start">
@@ -271,7 +293,7 @@ const AntrianView = ({ user, queues = [], services = [], onRefresh }) => {
           </div>
         </div>
       ) : (
-        <div className="pt-2 border-t border-slate-100"><span className="text-[9px] font-black text-slate-400 uppercase bg-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1 w-max"><Scissors size={10}/> Terkunci (Sedang/Selesai Dikerjakan)</span></div>
+        <div className="pt-2 border-t border-slate-100"><span className="text-[9px] font-black text-slate-400 uppercase bg-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1 w-max"><Scissors size={10}/> Terkunci</span></div>
       )}
     </div>
   );
@@ -279,11 +301,11 @@ const AntrianView = ({ user, queues = [], services = [], onRefresh }) => {
   return (
     <div className="h-full flex bg-[#f8fafc] overflow-hidden text-left font-sans relative">
       
-      {/* AREA KIRI: KANBAN BOARD & BOOKING WIDGET */}
+      {/* AREA KIRI: KANBAN BOARD & WIDGETS */}
       <div className="flex-1 p-6 md:p-8 flex flex-col overflow-hidden print:hidden relative z-0">
         
-        {/* HEADER GLASSMORPHISM */}
-        <div className="flex justify-between items-center mb-6 bg-white/80 backdrop-blur-md p-6 rounded-[2rem] border border-slate-200 shadow-sm">
+        {/* HEADER */}
+        <div className="flex justify-between items-center mb-6 bg-white/80 backdrop-blur-md p-6 rounded-[2rem] border border-slate-200 shadow-sm shrink-0">
           <div>
             <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight leading-none italic">Traffic Antrean</h2>
             <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Live Monitor & Control</p>
@@ -293,63 +315,96 @@ const AntrianView = ({ user, queues = [], services = [], onRefresh }) => {
           </button>
         </div>
 
-        {/* WIDGET: BOOKING HARI INI (HYBRID) */}
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <CalendarCheck size={18} className="text-amber-500"/>
-            <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">Jadwal Booking Hari Ini (Belum Hadir)</h3>
-          </div>
+        <div className="overflow-y-auto pr-2 no-scrollbar pb-10 flex-1 flex flex-col">
           
-          {todayBookings.length > 0 ? (
-            <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
-              {todayBookings.map(b => (
-                <div key={b.id} className="min-w-[280px] bg-slate-900 p-4 rounded-[1.5rem] shadow-lg border border-slate-700 flex justify-between items-center group animate-in slide-in-from-right-4">
-                  <div>
-                    <span className="text-[9px] bg-amber-400 text-slate-900 font-black uppercase tracking-widest px-2 py-0.5 rounded mb-1 inline-block">BOOKING</span>
-                    <p className="font-black text-white uppercase text-sm leading-tight">{b.customers?.nama}</p>
-                    <p className="text-[10px] text-slate-400 font-bold mt-1"><Scissors size={10} className="inline mr-1"/>{b.users?.nama || 'N/A'}</p>
-                  </div>
-                  <button onClick={() => handleCheckInBooking(b.id)} disabled={isUpdating} className="p-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-black text-xs uppercase shadow-lg shadow-emerald-500/20 transition-all active:scale-90 flex flex-col items-center gap-1">
-                    Hadir
-                  </button>
-                </div>
-              ))}
+          {/* WIDGET 1: BOOKING HARI INI */}
+          <div className="mb-8 shrink-0">
+            <div className="flex items-center gap-2 mb-3">
+              <CalendarCheck size={18} className="text-amber-500"/>
+              <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">Jadwal Booking Hari Ini (Belum Hadir)</h3>
             </div>
-          ) : (
-            <div className="w-full bg-slate-200/50 border-2 border-dashed border-slate-300 rounded-[1.5rem] p-4 text-center">
-              <p className="text-xs font-bold text-slate-400 italic">Tidak ada jadwal booking tersisa untuk hari ini.</p>
+            
+            {todayBookings.length > 0 ? (
+              <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
+                {todayBookings.map(b => (
+                  <div key={b.id} className="min-w-[280px] bg-slate-900 p-4 rounded-[1.5rem] shadow-lg border border-slate-700 flex justify-between items-center group animate-in slide-in-from-right-4">
+                    <div>
+                      <span className="text-[9px] bg-amber-400 text-slate-900 font-black uppercase tracking-widest px-2 py-0.5 rounded mb-1 inline-block">BOOKING</span>
+                      <p className="font-black text-white uppercase text-sm leading-tight">{b.customers?.nama || 'UMUM'}</p>
+                      <p className="text-[10px] text-slate-400 font-bold mt-1"><Scissors size={10} className="inline mr-1"/>{b.users?.nama || 'N/A'}</p>
+                    </div>
+                    <button onClick={() => handleCheckInBooking(b.id)} disabled={isUpdating} className="p-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-black text-xs uppercase shadow-lg shadow-emerald-500/20 transition-all active:scale-90 flex flex-col items-center gap-1">
+                      Hadir
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="w-full bg-slate-200/50 border-2 border-dashed border-slate-300 rounded-[1.5rem] p-4 text-center">
+                <p className="text-xs font-bold text-slate-400 italic">Tidak ada jadwal booking tersisa.</p>
+              </div>
+            )}
+          </div>
+
+          {/* WIDGET 2: PENJUALAN RETAIL (UNPAID) */}
+          {retailUnpaid.length > 0 && (
+            <div className="mb-8 shrink-0 animate-in slide-in-from-bottom-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Package size={18} className="text-emerald-500"/>
+                <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">Penjualan Produk Retail (Belum Bayar)</h3>
+              </div>
+              <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
+                {retailUnpaid.map(r => (
+                  <div 
+                    key={r.id} 
+                    onClick={() => setSelectedId(r.id)} 
+                    className={`min-w-[280px] bg-white p-4 rounded-[1.5rem] shadow-sm border-2 cursor-pointer transition-all hover:-translate-y-1 ${selectedId === r.id ? 'border-emerald-500 shadow-lg' : 'border-emerald-100 hover:border-emerald-300'}`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="text-[9px] bg-emerald-100 text-emerald-700 font-black uppercase tracking-widest px-2 py-0.5 rounded mb-1 inline-block">RETAIL</span>
+                        <p className="font-black text-slate-800 uppercase text-sm leading-tight">{r.customers?.nama || 'UMUM'}</p>
+                        <p className="text-[10px] text-slate-400 font-bold mt-1">Tagihan: <span className="text-slate-800">{formatIDR(r.total_tagihan)}</span></p>
+                      </div>
+                      <button className={`p-3 rounded-xl font-black transition-all ${selectedId === r.id ? 'bg-emerald-500 text-white' : 'bg-slate-50 text-slate-400'}`}>
+                        <ChevronRight size={18}/>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-        </div>
 
-        {/* KANBAN BOARD */}
-        <div className="flex-1 grid grid-cols-3 gap-6 overflow-hidden h-full">
-          {['Waiting', 'On Process', 'Done'].map(status => {
-            const columnColor = status === 'Waiting' ? 'bg-orange-500' : status === 'On Process' ? 'bg-indigo-500' : 'bg-emerald-500';
-            let columnQueues = [];
-            if (status === 'Done') {
-               columnQueues = safeQueues.filter(q => q.status_layanan === 'Done' && q.status_transaksi !== 'Paid');
-            } else {
-               columnQueues = safeQueues.filter(q => q.status_layanan === status);
-            }
+          {/* KANBAN BOARD */}
+          <div className="flex-1 grid grid-cols-3 gap-6 overflow-hidden min-h-[400px]">
+            {['Waiting', 'On Process', 'Done'].map(status => {
+              const columnColor = status === 'Waiting' ? 'bg-orange-500' : status === 'On Process' ? 'bg-indigo-500' : 'bg-emerald-500';
+              let columnQueues = [];
+              if (status === 'Done') {
+                 columnQueues = safeQueues.filter(q => q.status_layanan === 'Done' && q.status_transaksi !== 'Paid');
+              } else {
+                 columnQueues = safeQueues.filter(q => q.status_layanan === status);
+              }
 
-            return (
-              <div key={status} className="flex flex-col gap-4 overflow-hidden bg-slate-200/50 p-4 rounded-[2.5rem] border border-slate-200/80">
-                <div className="flex items-center justify-between px-3 py-1">
-                  <p className="text-xs font-black uppercase text-slate-700 flex items-center gap-2 tracking-widest">
-                    <span className={`w-3 h-3 rounded-full ${columnColor} ${status === 'On Process' ? 'animate-pulse' : ''}`}></span>
-                    {status}
-                  </p>
-                  <span className="bg-white px-3 py-1 rounded-full text-xs font-black text-slate-500 shadow-sm border border-slate-200">{columnQueues.length}</span>
+              return (
+                <div key={status} className="flex flex-col gap-4 overflow-hidden bg-slate-200/50 p-4 rounded-[2.5rem] border border-slate-200/80">
+                  <div className="flex items-center justify-between px-3 py-1 shrink-0">
+                    <p className="text-xs font-black uppercase text-slate-700 flex items-center gap-2 tracking-widest">
+                      <span className={`w-3 h-3 rounded-full ${columnColor} ${status === 'On Process' ? 'animate-pulse' : ''}`}></span>
+                      {status}
+                    </p>
+                    <span className="bg-white px-3 py-1 rounded-full text-xs font-black text-slate-500 shadow-sm border border-slate-200">{columnQueues.length}</span>
+                  </div>
+                  <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pb-4 px-1">
+                    {columnQueues.length === 0 ? (
+                      <div className="h-32 flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-[2rem] text-slate-400"><p className="text-xs font-bold uppercase tracking-widest opacity-50">Kosong</p></div>
+                    ) : ( columnQueues.map(q => <QueueCard key={q.id} q={q} />) )}
+                  </div>
                 </div>
-                <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pb-10 px-1">
-                  {columnQueues.length === 0 ? (
-                    <div className="h-32 flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-[2rem] text-slate-400"><p className="text-xs font-bold uppercase tracking-widest opacity-50">Kosong</p></div>
-                  ) : ( columnQueues.map(q => <QueueCard key={q.id} q={q} />) )}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -361,18 +416,13 @@ const AntrianView = ({ user, queues = [], services = [], onRefresh }) => {
             {/* HEADER DETAIL */}
             <div className="p-8 border-b border-slate-100 bg-slate-50 flex justify-between items-start shrink-0">
               <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                  {isSelectedRetail ? 'Pembelian Retail' : 'Layanan Cukur'}
+                </p>
                 <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none italic">
                   {selectedData.customers?.nama || 'UMUM'}
                 </h3>
                 <p className="text-xs font-bold text-slate-400 mt-2 flex items-center gap-2"><Phone size={14}/> {selectedData.customers?.no_wa || 'Tanpa Kontak'}</p>
-                <div className="flex items-center gap-2 mt-4">
-                  <span className="px-3 py-1.5 bg-slate-900 text-amber-400 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm">
-                    {selectedData.customers?.tier || 'Member'}
-                  </span>
-                  <span className="px-3 py-1.5 bg-amber-100 border border-amber-200 text-amber-600 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm flex items-center gap-1">
-                    <Star size={12} fill="currentColor"/> Poin: {selectedData.customers?.poin || 0}
-                  </span>
-                </div>
               </div>
               <div className="flex gap-2">
                 <button onClick={() => window.print()} className="w-12 h-12 bg-white border border-slate-200 text-slate-500 rounded-full flex items-center justify-center hover:text-indigo-600 hover:border-indigo-300 transition-colors shadow-sm active:scale-90" title="Print Ulang Antrean"><Printer size={20} strokeWidth={2.5}/></button>
@@ -380,20 +430,22 @@ const AntrianView = ({ user, queues = [], services = [], onRefresh }) => {
               </div>
             </div>
 
-            {/* ACTION BAR: HANYA ADA TOMBOL BATAL UNTUK FO */}
+            {/* ACTION BAR: TOMBOL BATAL MUNCUL JUGA BUAT RETAIL */}
             <div className="px-8 py-4 bg-slate-100 border-b border-slate-200 flex justify-between items-center shrink-0">
                <div className="flex items-center gap-2">
                  <span className={`w-3 h-3 rounded-full ${isSelectedWaiting ? 'bg-orange-500' : isSelectedOnProcess ? 'bg-indigo-500 animate-pulse' : 'bg-emerald-500'}`}></span>
-                 <p className="text-[11px] font-black text-slate-600 uppercase tracking-widest">{selectedData.status_layanan}</p>
+                 <p className="text-[11px] font-black text-slate-600 uppercase tracking-widest">{selectedData.status_layanan || 'RETAIL'}</p>
                </div>
                
-               <button onClick={() => setCancelModal({ ...cancelModal, isOpen: true })} className="px-4 py-2 bg-white border border-slate-200 text-rose-500 hover:bg-rose-50 rounded-xl text-[10px] font-black uppercase transition-all shadow-sm flex items-center gap-2"><Ban size={14}/> Batalkan Antrean</button>
+               {(isSelectedWaiting || isSelectedBooking || isSelectedRetail) && (
+                 <button onClick={() => setCancelModal({ ...cancelModal, isOpen: true })} className="px-4 py-2 bg-white border border-slate-200 text-rose-500 hover:bg-rose-50 rounded-xl text-[10px] font-black uppercase transition-all shadow-sm flex items-center gap-2"><Ban size={14}/> Batalkan Antrean</button>
+               )}
             </div>
 
             <div className="flex-1 overflow-y-auto no-scrollbar p-8 bg-white space-y-8">
                
                {/* UPSELLING PANEL */}
-               {(isSelectedDone || isSelectedOnProcess) && (
+               {((isSelectedDone || isSelectedOnProcess) && !isSelectedRetail) && (
                  <div className={`p-6 rounded-3xl relative overflow-hidden shadow-sm border-2 ${saranProdukAsli ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'}`}>
                     <Lightbulb size={80} className={`absolute -right-6 -bottom-6 rotate-12 ${saranProdukAsli ? 'text-amber-200 opacity-50' : 'text-slate-200 opacity-30'}`}/>
                     <div className="flex items-center gap-2 mb-3 relative z-10">
@@ -423,7 +475,7 @@ const AntrianView = ({ user, queues = [], services = [], onRefresh }) => {
                      <p className="text-[9px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-3 border-b-2 border-indigo-100 pb-2 flex items-center gap-2"><Scissors size={12}/> Jasa Layanan</p>
                      <div className="space-y-3">
                        {cartServices.map((it, idx) => (
-                         <ItemRow key={`svc-${idx}`} it={it} isLocked={!isSelectedWaiting} />
+                         <ItemRow key={`svc-${idx}`} it={it} isLocked={!isSelectedWaiting && !isSelectedRetail} />
                        ))}
                      </div>
                    </div>
@@ -435,7 +487,7 @@ const AntrianView = ({ user, queues = [], services = [], onRefresh }) => {
                      <p className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.2em] mb-3 border-b-2 border-emerald-100 pb-2 flex items-center gap-2"><Package size={12}/> Produk Retail</p>
                      <div className="space-y-3">
                        {cartProducts.map((it, idx) => (
-                         <ItemRow key={`prd-${idx}`} it={it} isLocked={false} /> // Produk ga pernah dikunci, FO bebas ngedit
+                         <ItemRow key={`prd-${idx}`} it={it} isLocked={!isSelectedWaiting && !isSelectedRetail} /> 
                        ))}
                      </div>
                    </div>
@@ -518,7 +570,7 @@ const AntrianView = ({ user, queues = [], services = [], onRefresh }) => {
           <div className="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100">
              <div className="p-8 bg-rose-50 border-b border-rose-100 text-center">
                 <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center text-rose-500 mx-auto mb-4 shadow-sm border-4 border-rose-100"><Ban size={40} strokeWidth={2.5}/></div>
-                <h3 className="text-2xl font-black text-rose-600 uppercase tracking-tight italic">Batalkan Antrean</h3>
+                <h3 className="text-2xl font-black text-rose-600 uppercase tracking-tight italic">Batalkan Transaksi</h3>
              </div>
              <div className="p-8 space-y-6">
                <div>
@@ -541,7 +593,7 @@ const AntrianView = ({ user, queues = [], services = [], onRefresh }) => {
         </div>
       )}
 
-      {/* STRUK PRINT THERMAL INVISIBLE (Disembunyikan jika Payment Modal Terbuka) */}
+      {/* STRUK PRINT THERMAL INVISIBLE */}
       {!isPaymentOpen && selectedData && (
         <div className="hidden print:flex print:fixed print:inset-0 print:bg-white print:z-[99999] print:items-start print:justify-center w-full text-black font-mono p-4 text-[12px] uppercase">
           <div className="w-[58mm] pt-4">

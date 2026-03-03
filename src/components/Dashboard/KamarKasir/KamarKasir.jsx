@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../../supabaseClient'; 
 
-// Import sub-komponen (Pastikan case-sensitive filenya sudah benar di folder)
+// Import sub-komponen
 import DashboardView from "./DashboardView";
 import TransactionWizard from "./TransactionWizard";
 import AntrianView from "./AntrianView";
@@ -16,13 +16,12 @@ import ClosingShift from "./ClosingShift";
 
 const KamarKasir = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // State buat Sidebar Ciut
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); 
   const [queues, setQueues] = useState([]);
   const [services, setServices] = useState([]);
   const [capsters, setCapsters] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 1. FUNGSI AMBIL LAYANAN & PRODUK
   const fetchServices = async () => {
     try {
       const { data, error } = await supabase.from('products_services').select('*').eq('is_active', true);
@@ -31,7 +30,6 @@ const KamarKasir = ({ user, onLogout }) => {
     } catch (err) { console.error("Gagal ambil services:", err.message); }
   };
 
-  // 2. FUNGSI AMBIL CAPSTER
   const fetchCapsters = async () => {
     try {
       const { data, error } = await supabase.from('users').select('*').eq('outlet_id', user.outlet_id).ilike('role', '%capster%').eq('is_active', true);
@@ -40,10 +38,7 @@ const KamarKasir = ({ user, onLogout }) => {
     } catch (err) { console.error("Gagal ambil capster:", err.message); }
   };
 
-  // 3. FUNGSI REFRESH ANTREAN
   const refreshData = async () => {
-    // Kalau dia lagi narik data, jangan di-setLoading true terus-terusan 
-    // biar layar FO gak kedap-kedip pas Realtime jalan.
     if(queues.length === 0) setLoading(true); 
     try {
       const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -57,7 +52,8 @@ const KamarKasir = ({ user, onLogout }) => {
         .eq('outlet_id', user.outlet_id)
         .gte('transaction_date', startOfDay)
         .lte('transaction_date', endOfToday)
-        .neq('status_layanan', 'Cancel')
+        // 🚨 INI KUNCI UTAMANYA: Ambil yg BUKAN Cancel, ATAU yang KOSONG
+        .or('status_layanan.neq.Cancel,status_layanan.is.null') 
         .order('no_antrean', { ascending: true });
 
       if (error) throw error;
@@ -66,7 +62,6 @@ const KamarKasir = ({ user, onLogout }) => {
     finally { setLoading(false); }
   };
 
-  // 4. EFEK PERTAMA KALI RENDER (Narik Data Awal)
   useEffect(() => {
     if (user?.outlet_id) { 
       refreshData(); 
@@ -75,52 +70,33 @@ const KamarKasir = ({ user, onLogout }) => {
     }
   }, [user?.outlet_id]);
 
-  // --- 📡 5. SENSOR REALTIME (SISTEM SARAF) 📡 ---
   useEffect(() => {
     if (!user?.outlet_id) return;
 
-    // Kita kasih nama channel yang spesifik per ruko biar gak bentrok
     const channelName = `antrean-ruko-${user.outlet_id}`;
-
-    // Bikin "Satelit Pengintai" khusus buat ngecekin tabel 'visits' (Antrean)
     const antreanSatelit = supabase.channel(channelName)
       .on(
         'postgres_changes',
-        {
-          event: '*', // Dengerin SEMUA pergerakan (Insert, Update, Delete)
-          schema: 'public',
-          table: 'visits',
-          filter: `outlet_id=eq.${user.outlet_id}` // Cuma ngintip ruko cabang ini aja
-        },
+        { event: '*', schema: 'public', table: 'visits', filter: `outlet_id=eq.${user.outlet_id}` },
         (payload) => {
-          console.log('🚨 Info Satelit: Ada perubahan data di meja Capster/Antrean!', payload);
-          // Kalau ada capster mencet 'START' atau 'SELESAI', langsung tarik data terbaru
-          // Layar FO bakal auto-update tanpa perlu disentuh.
+          console.log('🚨 Info Satelit: Ada perubahan data!', payload);
           refreshData(); 
         }
       )
       .subscribe((status) => {
-        // Biar kita tau kapan satelitnya beneran udah nyambung
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ Satelit Realtime Berhasil Mengorbit!');
-        }
+        if (status === 'SUBSCRIBED') console.log('✅ Satelit Realtime Berhasil Mengorbit!');
       });
 
-    // Bersihin satelit kalau kasirnya logout atau tutup browser (Peredam Kejut Strict Mode)
     return () => {
-      antreanSatelit.unsubscribe().then(() => {
-        supabase.removeChannel(antreanSatelit);
-      });
+      supabase.removeChannel(antreanSatelit);
     };
   }, [user?.outlet_id]);
 
   return (
     <div className="flex h-screen w-full bg-slate-50 overflow-hidden text-left font-sans text-slate-900">
       
-      {/* SIDEBAR DENGAN ANIMASI COLLAPSE */}
       <div className={`print:hidden bg-slate-900 h-full flex flex-col p-4 text-white shrink-0 transition-all duration-300 relative ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
         
-        {/* Tombol Toggle Sidebar */}
         <button 
           onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           className="absolute -right-3 top-20 w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center border-2 border-white shadow-lg z-50 hover:scale-110 active:scale-95 transition-all"
@@ -130,7 +106,7 @@ const KamarKasir = ({ user, onLogout }) => {
 
         <div className={`p-4 mb-6 bg-indigo-600 rounded-2xl flex items-center shadow-lg transition-all ${isSidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
           <Scissors size={20} className="shrink-0"/>
-          {!isSidebarCollapsed && <span className="font-bold text-xs tracking-widest uppercase truncate">Nal's Barbershop</span>}
+          {!isSidebarCollapsed && <span className="font-bold text-xs tracking-widest uppercase truncate">{user?.outlet_name || "Nal's Barbershop"}</span>}
         </div>
 
         <div className="space-y-1 flex-1 overflow-y-auto no-scrollbar">
@@ -151,9 +127,7 @@ const KamarKasir = ({ user, onLogout }) => {
         </button>
       </div>
 
-      {/* AREA KONTEN UTAMA */}
       <div className="flex-1 h-full overflow-hidden relative bg-white">
-        {/* Loading Spinner cuma muncul pas pertama kali buka aplikasi aja */}
         {loading && queues.length === 0 && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm">
              <div className="flex flex-col items-center gap-2">
